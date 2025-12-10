@@ -1,638 +1,641 @@
 {
   "1": {
-    "2025-11": {
-      "2025-11-01": {
-        "date": "2025-11-01",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
+    "1765406243586": {
+      "2025-11": {
+        "2025-11-01": {
+          "date": "2025-11-01",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-11-02": {
+          "date": "2025-11-02",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-11-03": {
+          "date": "2025-11-03",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Зміна годин праці для магазина в Лодзі Łódź (ul. Rydzowa) в 3-х версіях\nPon-Niedz od 08:00 do 20:00",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "10:00",
+              "endTime": "11:00",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "01:00"
+        },
+        "2025-11-04": {
+          "date": "2025-11-04",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "текст для новини по відкриттю нового магазина (blog)",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "12:45",
+              "endTime": "13:45",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "01:00"
+        },
+        "2025-11-05": {
+          "date": "2025-11-05",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Edycja danych na stronie \"Kontakt\" best-market.pl",
+              "assignedBy": "Anna BestMart (HR)",
+              "startTime": "15:00",
+              "endTime": "16:00",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "01:00"
+        },
+        "2025-11-06": {
+          "date": "2025-11-06",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Poprawki na stronie Kontakt (włącznie z wersjami)",
+              "assignedBy": "Anna BestMart (HR)",
+              "startTime": "08:00",
+              "endTime": "14:00",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "06:00"
+        },
+        "2025-11-07": {
+          "date": "2025-11-07",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Fix ładowania Elementor Page Builder'a",
+              "assignedBy": "",
+              "startTime": "10:20",
+              "endTime": "14:40",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "04:20"
+        },
+        "2025-11-08": {
+          "date": "2025-11-08",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-11-09": {
+          "date": "2025-11-09",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-11-10": {
+          "date": "2025-11-10",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "refactoring kodu wtyczki BS Sync (integracja z BaseLinker)",
+              "assignedBy": "Alex Shram",
+              "startTime": "08:00",
+              "endTime": "16:00",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "08:00"
+        },
+        "2025-11-11": {
+          "date": "2025-11-11",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-11-12": {
+          "date": "2025-11-12",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Алексей,  добрый день.\nПишу вам по поручению Сергея Колесник. \nМне необходимо купить домен \nBest-market.cz \nдля чешского проекта.\nСергей сказал что купить можно только с вами.\nЯ его уже в корзину добавила. Все данные чешской фирмы ввела, осталось только оплатить.\nМожем с вами сейчас это сделать?",
+              "assignedBy": "Svetlana Sergunova",
+              "startTime": "16:30",
+              "endTime": "21:00",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "04:30"
+        },
+        "2025-11-13": {
+          "date": "2025-11-13",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Dodanie tłumaczeń do nowych produktów, dodanie SEO opisów do kategorii i produktów.",
+              "assignedBy": "Alex Shram",
+              "startTime": "08:00",
+              "endTime": "16:00",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "08:00"
+        },
+        "2025-11-14": {
+          "date": "2025-11-14",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Aktualizacje wtyczek",
+              "assignedBy": "Alex Shram",
+              "startTime": "09:10",
+              "endTime": "09:20",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "00:10"
+        },
+        "2025-11-15": {
+          "date": "2025-11-15",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-11-16": {
+          "date": "2025-11-16",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-11-17": {
+          "date": "2025-11-17",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Вітаю, в бітріксі ще не ставив задачу, попередньо хочу спитати, як можна додати на foodex24 в розділ https://foodex24.pl/lokalizacje/\nдо двух магазинів посилання на прокласти маршрут",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "16:00",
+              "endTime": "20:00",
+              "status": "wykonano"
+            },
+            {
+              "text": "Aktualizacja wtyczek na foodex24.pl",
+              "assignedBy": "Alex Shram",
+              "startTime": "20:30",
+              "endTime": "22:30",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "06:00"
+        },
+        "2025-11-18": {
+          "date": "2025-11-18",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Aktualizacja wtyczek na best-market.pl",
+              "assignedBy": "Alex Shram",
+              "startTime": "09:00",
+              "endTime": "11:00",
+              "status": "wykonano"
+            },
+            {
+              "text": "popraawienie SEO optymizacji na best-market.pl",
+              "assignedBy": "Alex Shram",
+              "startTime": "11:00",
+              "endTime": "14:00",
+              "status": "wykonano"
+            },
+            {
+              "text": "Promocje Karuzela (Query) - only in stock visible",
+              "assignedBy": "Alex Shram",
+              "startTime": "14:00",
+              "endTime": "16:00",
+              "status": "wykonano"
+            },
+            {
+              "text": "bieżace zapytania",
+              "assignedBy": "Alona Prokhoda",
+              "startTime": "14:00",
+              "endTime": "14:15",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "07:00"
+        },
+        "2025-11-19": {
+          "date": "2025-11-19",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "konwersacja",
+              "assignedBy": "Alona Prokhoda",
+              "startTime": "16:26",
+              "endTime": "16:45",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "00:19"
+        },
+        "2025-11-20": {
+          "date": "2025-11-20",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Aktualizacja WordPress + WooCommerce, theme, inne wtyczki.",
+              "assignedBy": "Alex Shram",
+              "startTime": "08:00",
+              "endTime": "15:00",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "07:00"
+        },
+        "2025-11-21": {
+          "date": "2025-11-21",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-11-22": {
+          "date": "2025-11-22",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-11-23": {
+          "date": "2025-11-23",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-11-24": {
+          "date": "2025-11-24",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Добрый день, Алексей \nМеня зовут Алёна я новый рекрутер сити Best Market \nХотела у вас узнать каким образом я могу подать к вам заявку для размещения новой вакансии к нам на сайт.\n- wyjaśnienie.",
+              "assignedBy": "Alena Rybalko",
+              "startTime": "09:48",
+              "endTime": "10:00",
+              "status": "wykonano"
+            },
+            {
+              "text": "Alena: Нагадую про себе. Ви змінили пароль до протона? Я нікуди не можу зайти.",
+              "assignedBy": "Alona Prokhoda",
+              "startTime": "11:09",
+              "endTime": "15:24",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "04:27"
+        },
+        "2025-11-25": {
+          "date": "2025-11-25",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Dostosowanie Hero section pod Black Friday",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "15:05",
+              "endTime": "16:05",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "01:00"
+        },
+        "2025-11-26": {
+          "date": "2025-11-26",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Foodex24 banery na blog i carousel.",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "09:10",
+              "endTime": "14:15",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "05:05"
+        },
+        "2025-11-27": {
+          "date": "2025-11-27",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "пофіксити баг на сайті z Cytrio",
+              "assignedBy": "Alex Shram",
+              "startTime": "10:20",
+              "endTime": "13:00",
+              "status": "wykonano"
+            },
+            {
+              "text": "Привіт. Не можу зайти як адмін на фудекс. Poprawka bugu na stronie Foodex24",
+              "assignedBy": "Alona Prokhoda",
+              "startTime": "09:55",
+              "endTime": "15:20",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "05:25"
+        },
+        "2025-11-28": {
+          "date": "2025-11-28",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "новости в блоге об открытии нового магазина в Лодзе 04.12. Просьба, по готовности скинуть ссылку для рекламы.",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "14:45",
+              "endTime": "15:40",
+              "status": "wykonano"
+            },
+            {
+              "text": "правки",
+              "assignedBy": "Alex Shram",
+              "startTime": "19:00",
+              "endTime": "20:15",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "02:10"
+        },
+        "2025-11-29": {
+          "date": "2025-11-29",
+          "timeSlots": [],
+          "tasks": [
+            {
+              "text": "Aktyalizacja wtyczek, poprawienie bezpieczeństwa. Aktualizacja motywu.",
+              "assignedBy": "Alex Shram",
+              "startTime": "11:00",
+              "endTime": "13:00",
+              "status": "wykonano"
+            }
+          ],
+          "totalHours": "02:00"
+        },
+        "2025-11-30": {
+          "date": "2025-11-30",
+          "timeSlots": [],
+          "tasks": [],
+          "totalHours": "00:00"
+        }
       },
-      "2025-11-02": {
-        "date": "2025-11-02",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
+      "2025-12": {
+        "2025-12-01": {
+          "date": "2025-12-01",
+          "tasks": [
+            {
+              "text": "Добавление новой карусели на главную страницу со списком товаров для новогоднего раздела",
+              "assignedBy": "Olga Chernovets",
+              "startTime": "09:30",
+              "endTime": "16:00",
+              "status": "wykonano",
+              "completed": false
+            },
+            {
+              "text": "Добавление информации о Black Weekend. Zmiana logotypu. Bieżące zapytania.",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "10:40",
+              "endTime": "16:35",
+              "status": "wykonano",
+              "completed": false
+            }
+          ],
+          "totalHours": "07:05"
+        },
+        "2025-12-02": {
+          "date": "2025-12-02",
+          "tasks": [
+            {
+              "text": "Замена фото в блоге. Обсуждение bieżących задач.",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "09:40",
+              "endTime": "13:05",
+              "status": "wykonano",
+              "completed": false
+            }
+          ],
+          "totalHours": "03:25"
+        },
+        "2025-12-03": {
+          "date": "2025-12-03",
+          "tasks": [
+            {
+              "text": "Добавление новых локаций магазинов на сайт. Добавление новых разделов (категорий). Карусель.",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "09:30",
+              "endTime": "14:45",
+              "status": "wykonano",
+              "completed": false
+            }
+          ],
+          "totalHours": "05:15"
+        },
+        "2025-12-04": {
+          "date": "2025-12-04",
+          "tasks": [
+            {
+              "text": "знакомство, выяснение графика, задач.",
+              "assignedBy": "Yana Raputa",
+              "startTime": "09:30",
+              "endTime": "11:00",
+              "status": "wykonano",
+              "completed": false
+            },
+            {
+              "text": "Замена фото на сайте главного слайдера. Добавление фото к новым локациям магазинов.",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "09:25",
+              "endTime": "13:35",
+              "status": "wykonano",
+              "completed": false
+            }
+          ],
+          "totalHours": "04:10"
+        },
+        "2025-12-05": {
+          "date": "2025-12-05",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-06": {
+          "date": "2025-12-06",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-07": {
+          "date": "2025-12-07",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-08": {
+          "date": "2025-12-08",
+          "tasks": [
+            {
+              "text": "Zgłoszenie проблемы с лидами на сайте. Верификация.",
+              "assignedBy": "HR Maryna",
+              "startTime": "11:30",
+              "endTime": "12:10",
+              "status": "wykonano",
+              "completed": false
+            }
+          ],
+          "totalHours": "00:40"
+        },
+        "2025-12-09": {
+          "date": "2025-12-09",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-10": {
+          "date": "2025-12-10",
+          "tasks": [
+            {
+              "text": "Инфо о организационных изменениях",
+              "assignedBy": "Yana Raputa",
+              "startTime": "15:00",
+              "endTime": "15:15",
+              "status": "wykonano",
+              "completed": false
+            },
+            {
+              "text": "Выяснение проблемы с формой отправки CV. Рефакторий кода, выпуск новой версии плагина EFPP.",
+              "assignedBy": "HR Maryna",
+              "startTime": "12:30",
+              "endTime": "16:00",
+              "status": "wykonano",
+              "completed": false
+            },
+            {
+              "text": "Добавление новых вакансий на сайт best-market.pl",
+              "assignedBy": "HR Maryna",
+              "startTime": "20:00",
+              "endTime": "22:40",
+              "status": "do zrobienia",
+              "completed": false
+            },
+            {
+              "text": "Запрос о созвоне",
+              "assignedBy": "Sergiy Kirakosian",
+              "startTime": "13:40",
+              "endTime": "14:00",
+              "status": "wykonano",
+              "completed": false
+            }
+          ],
+          "totalHours": "06:10"
+        },
+        "2025-12-11": {
+          "date": "2025-12-11",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-12": {
+          "date": "2025-12-12",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-13": {
+          "date": "2025-12-13",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-14": {
+          "date": "2025-12-14",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-15": {
+          "date": "2025-12-15",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-16": {
+          "date": "2025-12-16",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-17": {
+          "date": "2025-12-17",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-18": {
+          "date": "2025-12-18",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-19": {
+          "date": "2025-12-19",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-20": {
+          "date": "2025-12-20",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-21": {
+          "date": "2025-12-21",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-22": {
+          "date": "2025-12-22",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-23": {
+          "date": "2025-12-23",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-24": {
+          "date": "2025-12-24",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-25": {
+          "date": "2025-12-25",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-26": {
+          "date": "2025-12-26",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-27": {
+          "date": "2025-12-27",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-28": {
+          "date": "2025-12-28",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-29": {
+          "date": "2025-12-29",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-30": {
+          "date": "2025-12-30",
+          "tasks": [],
+          "totalHours": "00:00"
+        },
+        "2025-12-31": {
+          "date": "2025-12-31",
+          "tasks": [],
+          "totalHours": "00:00"
+        }
       },
-      "2025-11-03": {
-        "date": "2025-11-03",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Зміна годин праці для магазина в Лодзі Łódź (ul. Rydzowa) в 3-х версіях\nPon-Niedz od 08:00 do 20:00",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "10:00",
-            "endTime": "11:00",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "01:00"
-      },
-      "2025-11-04": {
-        "date": "2025-11-04",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "текст для новини по відкриттю нового магазина (blog)",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "12:45",
-            "endTime": "13:45",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "01:00"
-      },
-      "2025-11-05": {
-        "date": "2025-11-05",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Edycja danych na stronie \"Kontakt\" best-market.pl",
-            "assignedBy": "Anna BestMart (HR)",
-            "startTime": "15:00",
-            "endTime": "16:00",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "01:00"
-      },
-      "2025-11-06": {
-        "date": "2025-11-06",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Poprawki na stronie Kontakt (włącznie z wersjami)",
-            "assignedBy": "Anna BestMart (HR)",
-            "startTime": "08:00",
-            "endTime": "14:00",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "06:00"
-      },
-      "2025-11-07": {
-        "date": "2025-11-07",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Fix ładowania Elementor Page Builder'a",
-            "assignedBy": "",
-            "startTime": "10:20",
-            "endTime": "14:40",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "04:20"
-      },
-      "2025-11-08": {
-        "date": "2025-11-08",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-11-09": {
-        "date": "2025-11-09",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-11-10": {
-        "date": "2025-11-10",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "refactoring kodu wtyczki BS Sync (integracja z BaseLinker)",
-            "assignedBy": "Alex Shram",
-            "startTime": "08:00",
-            "endTime": "16:00",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "08:00"
-      },
-      "2025-11-11": {
-        "date": "2025-11-11",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-11-12": {
-        "date": "2025-11-12",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Алексей,  добрый день.\nПишу вам по поручению Сергея Колесник. \nМне необходимо купить домен \nBest-market.cz \nдля чешского проекта.\nСергей сказал что купить можно только с вами.\nЯ его уже в корзину добавила. Все данные чешской фирмы ввела, осталось только оплатить.\nМожем с вами сейчас это сделать?",
-            "assignedBy": "Svetlana Sergunova",
-            "startTime": "16:30",
-            "endTime": "21:00",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "04:30"
-      },
-      "2025-11-13": {
-        "date": "2025-11-13",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Dodanie tłumaczeń do nowych produktów, dodanie SEO opisów do kategorii i produktów.",
-            "assignedBy": "Alex Shram",
-            "startTime": "08:00",
-            "endTime": "16:00",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "08:00"
-      },
-      "2025-11-14": {
-        "date": "2025-11-14",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Aktualizacje wtyczek",
-            "assignedBy": "Alex Shram",
-            "startTime": "09:10",
-            "endTime": "09:20",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "00:10"
-      },
-      "2025-11-15": {
-        "date": "2025-11-15",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-11-16": {
-        "date": "2025-11-16",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-11-17": {
-        "date": "2025-11-17",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Вітаю, в бітріксі ще не ставив задачу, попередньо хочу спитати, як можна додати на foodex24 в розділ https://foodex24.pl/lokalizacje/\nдо двух магазинів посилання на прокласти маршрут",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "16:00",
-            "endTime": "20:00",
-            "status": "wykonano"
-          },
-          {
-            "text": "Aktualizacja wtyczek na foodex24.pl",
-            "assignedBy": "Alex Shram",
-            "startTime": "20:30",
-            "endTime": "22:30",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "06:00"
-      },
-      "2025-11-18": {
-        "date": "2025-11-18",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Aktualizacja wtyczek na best-market.pl",
-            "assignedBy": "Alex Shram",
-            "startTime": "09:00",
-            "endTime": "11:00",
-            "status": "wykonano"
-          },
-          {
-            "text": "popraawienie SEO optymizacji na best-market.pl",
-            "assignedBy": "Alex Shram",
-            "startTime": "11:00",
-            "endTime": "14:00",
-            "status": "wykonano"
-          },
-          {
-            "text": "Promocje Karuzela (Query) - only in stock visible",
-            "assignedBy": "Alex Shram",
-            "startTime": "14:00",
-            "endTime": "16:00",
-            "status": "wykonano"
-          },
-          {
-            "text": "bieżace zapytania",
-            "assignedBy": "Alona Prokhoda",
-            "startTime": "14:00",
-            "endTime": "14:15",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "07:00"
-      },
-      "2025-11-19": {
-        "date": "2025-11-19",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "konwersacja",
-            "assignedBy": "Alona Prokhoda",
-            "startTime": "16:26",
-            "endTime": "16:45",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "00:19"
-      },
-      "2025-11-20": {
-        "date": "2025-11-20",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Aktualizacja WordPress + WooCommerce, theme, inne wtyczki.",
-            "assignedBy": "Alex Shram",
-            "startTime": "08:00",
-            "endTime": "15:00",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "07:00"
-      },
-      "2025-11-21": {
-        "date": "2025-11-21",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-11-22": {
-        "date": "2025-11-22",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-11-23": {
-        "date": "2025-11-23",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-11-24": {
-        "date": "2025-11-24",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Добрый день, Алексей \nМеня зовут Алёна я новый рекрутер сити Best Market \nХотела у вас узнать каким образом я могу подать к вам заявку для размещения новой вакансии к нам на сайт.\n- wyjaśnienie.",
-            "assignedBy": "Alena Rybalko",
-            "startTime": "09:48",
-            "endTime": "10:00",
-            "status": "wykonano"
-          },
-          {
-            "text": "Alena: Нагадую про себе. Ви змінили пароль до протона? Я нікуди не можу зайти.",
-            "assignedBy": "Alona Prokhoda",
-            "startTime": "11:09",
-            "endTime": "15:24",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "04:27"
-      },
-      "2025-11-25": {
-        "date": "2025-11-25",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Dostosowanie Hero section pod Black Friday",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "15:05",
-            "endTime": "16:05",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "01:00"
-      },
-      "2025-11-26": {
-        "date": "2025-11-26",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Foodex24 banery na blog i carousel.",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "09:10",
-            "endTime": "14:15",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "05:05"
-      },
-      "2025-11-27": {
-        "date": "2025-11-27",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "пофіксити баг на сайті z Cytrio",
-            "assignedBy": "Alex Shram",
-            "startTime": "10:20",
-            "endTime": "13:00",
-            "status": "wykonano"
-          },
-          {
-            "text": "Привіт. Не можу зайти як адмін на фудекс. Poprawka bugu na stronie Foodex24",
-            "assignedBy": "Alona Prokhoda",
-            "startTime": "09:55",
-            "endTime": "15:20",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "05:25"
-      },
-      "2025-11-28": {
-        "date": "2025-11-28",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "новости в блоге об открытии нового магазина в Лодзе 04.12. Просьба, по готовности скинуть ссылку для рекламы.",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "14:45",
-            "endTime": "15:40",
-            "status": "wykonano"
-          },
-          {
-            "text": "правки",
-            "assignedBy": "Alex Shram",
-            "startTime": "19:00",
-            "endTime": "20:15",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "02:10"
-      },
-      "2025-11-29": {
-        "date": "2025-11-29",
-        "timeSlots": [],
-        "tasks": [
-          {
-            "text": "Aktyalizacja wtyczek, poprawienie bezpieczeństwa. Aktualizacja motywu.",
-            "assignedBy": "Alex Shram",
-            "startTime": "11:00",
-            "endTime": "13:00",
-            "status": "wykonano"
-          }
-        ],
-        "totalHours": "02:00"
-      },
-      "2025-11-30": {
-        "date": "2025-11-30",
-        "timeSlots": [],
-        "tasks": [],
-        "totalHours": "00:00"
-      }
-    },
-    "2025-12": {
-      "2025-12-01": {
-        "date": "2025-12-01",
-        "tasks": [
-          {
-            "text": "Добавление новой карусели на главную страницу со списком товаров для новогоднего раздела",
-            "assignedBy": "Olga Chernovets",
-            "startTime": "09:30",
-            "endTime": "16:00",
-            "status": "wykonano",
-            "completed": false
-          },
-          {
-            "text": "Добавление информации о Black Weekend. Zmiana logotypu. Bieżące zapytania.",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "10:40",
-            "endTime": "16:35",
-            "status": "wykonano",
-            "completed": false
-          }
-        ],
-        "totalHours": "07:05"
-      },
-      "2025-12-02": {
-        "date": "2025-12-02",
-        "tasks": [
-          {
-            "text": "Замена фото в блоге. Обсуждение bieżących задач.",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "09:40",
-            "endTime": "13:05",
-            "status": "wykonano",
-            "completed": false
-          }
-        ],
-        "totalHours": "03:25"
-      },
-      "2025-12-03": {
-        "date": "2025-12-03",
-        "tasks": [
-          {
-            "text": "Добавление новых локаций магазинов на сайт. Добавление новых разделов (категорий). Карусель.",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "09:30",
-            "endTime": "14:45",
-            "status": "wykonano",
-            "completed": false
-          }
-        ],
-        "totalHours": "05:15"
-      },
-      "2025-12-04": {
-        "date": "2025-12-04",
-        "tasks": [
-          {
-            "text": "знакомство, выяснение графика, задач.",
-            "assignedBy": "Yana Raputa",
-            "startTime": "09:30",
-            "endTime": "11:00",
-            "status": "wykonano",
-            "completed": false
-          },
-          {
-            "text": "Замена фото на сайте главного слайдера. Добавление фото к новым локациям магазинов.",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "09:25",
-            "endTime": "13:35",
-            "status": "wykonano",
-            "completed": false
-          }
-        ],
-        "totalHours": "04:10"
-      },
-      "2025-12-05": {
-        "date": "2025-12-05",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-06": {
-        "date": "2025-12-06",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-07": {
-        "date": "2025-12-07",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-08": {
-        "date": "2025-12-08",
-        "tasks": [
-          {
-            "text": "Zgłoszenie проблемы с лидами на сайте. Верификация.",
-            "assignedBy": "HR Maryna",
-            "startTime": "11:30",
-            "endTime": "12:10",
-            "status": "wykonano",
-            "completed": false
-          }
-        ],
-        "totalHours": "00:40"
-      },
-      "2025-12-09": {
-        "date": "2025-12-09",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-10": {
-        "date": "2025-12-10",
-        "tasks": [
-          {
-            "text": "Инфо о организационных изменениях",
-            "assignedBy": "Yana Raputa",
-            "startTime": "15:00",
-            "endTime": "15:15",
-            "status": "wykonano",
-            "completed": false
-          },
-          {
-            "text": "Выяснение проблемы с формой отправки CV. Рефакторий кода, выпуск новой версии плагина EFPP.",
-            "assignedBy": "HR Maryna",
-            "startTime": "12:30",
-            "endTime": "16:00",
-            "status": "wykonano",
-            "completed": false
-          },
-          {
-            "text": "Добавление новых вакансий на сайт best-market.pl",
-            "assignedBy": "HR Maryna",
-            "startTime": "20:00",
-            "endTime": "22:40",
-            "status": "do zrobienia",
-            "completed": false
-          },
-          {
-            "text": "Запрос о созвоне",
-            "assignedBy": "Sergiy Kirakosian",
-            "startTime": "13:40",
-            "endTime": "14:00",
-            "status": "wykonano",
-            "completed": false
-          }
-        ],
-        "totalHours": "06:10"
-      },
-      "2025-12-11": {
-        "date": "2025-12-11",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-12": {
-        "date": "2025-12-12",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-13": {
-        "date": "2025-12-13",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-14": {
-        "date": "2025-12-14",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-15": {
-        "date": "2025-12-15",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-16": {
-        "date": "2025-12-16",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-17": {
-        "date": "2025-12-17",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-18": {
-        "date": "2025-12-18",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-19": {
-        "date": "2025-12-19",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-20": {
-        "date": "2025-12-20",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-21": {
-        "date": "2025-12-21",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-22": {
-        "date": "2025-12-22",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-23": {
-        "date": "2025-12-23",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-24": {
-        "date": "2025-12-24",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-25": {
-        "date": "2025-12-25",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-26": {
-        "date": "2025-12-26",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-27": {
-        "date": "2025-12-27",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-28": {
-        "date": "2025-12-28",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-29": {
-        "date": "2025-12-29",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-30": {
-        "date": "2025-12-30",
-        "tasks": [],
-        "totalHours": "00:00"
-      },
-      "2025-12-31": {
-        "date": "2025-12-31",
-        "tasks": [],
-        "totalHours": "00:00"
-      }
+      "1765406243586": {}
     }
   }
 }

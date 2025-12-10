@@ -28,18 +28,24 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const monthKey = searchParams.get('month') || new Date().toISOString().substring(0, 7) // yyyy-MM
+    const clientIdParam = searchParams.get('clientId')
+    const clientId = clientIdParam ? parseInt(clientIdParam) : null
+    
+    if (!clientId) {
+      return NextResponse.json({ error: 'Client ID is required' }, { status: 400 })
+    }
     
     let monthData: Record<string, any> = {}
     
     if (isMySQLAvailable()) {
       try {
-        monthData = await getMonthData(userId, monthKey)
+        monthData = await getMonthData(userId, monthKey, clientId)
       } catch (error) {
         console.error('MySQL error, falling back to JSON:', error)
-        monthData = getMonthDataJSON(userId, monthKey)
+        monthData = getMonthDataJSON(userId, monthKey, clientId)
       }
     } else {
-      monthData = getMonthDataJSON(userId, monthKey)
+      monthData = getMonthDataJSON(userId, monthKey, clientId)
     }
     
     return NextResponse.json({ [monthKey]: monthData })
@@ -57,18 +63,25 @@ export async function POST(request: NextRequest) {
 
   try {
     const workTimeData = await request.json()
+    const clientId = workTimeData.clientId
     
-    // workTimeData ma format: { "2024-09": { "2024-09-01": {...}, ... } }
-    for (const [monthKey, daysData] of Object.entries(workTimeData)) {
+    if (!clientId) {
+      return NextResponse.json({ error: 'Client ID is required' }, { status: 400 })
+    }
+    
+    // workTimeData ma format: { "2024-09": { "2024-09-01": {...}, ... }, clientId: 1 }
+    const { clientId: _, ...monthData } = workTimeData
+    
+    for (const [monthKey, daysData] of Object.entries(monthData)) {
       if (isMySQLAvailable()) {
         try {
-          await saveMonthData(userId, monthKey, daysData as any)
+          await saveMonthData(userId, monthKey, daysData as any, clientId)
         } catch (error) {
           console.error('MySQL error, falling back to JSON:', error)
-          saveMonthDataJSON(userId, monthKey, daysData as any)
+          saveMonthDataJSON(userId, monthKey, daysData as any, clientId)
         }
       } else {
-        saveMonthDataJSON(userId, monthKey, daysData as any)
+        saveMonthDataJSON(userId, monthKey, daysData as any, clientId)
       }
     }
     

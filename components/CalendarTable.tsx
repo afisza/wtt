@@ -9,6 +9,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { FileText } from 'lucide-react'
+import { robotoFontBase64, robotoFontName } from '@/lib/roboto-font'
 
 interface DayData {
   date: string
@@ -16,7 +17,13 @@ interface DayData {
   totalHours: string
 }
 
-export default function CalendarTable() {
+interface CalendarTableProps {
+  clientId: number | null
+  clientName?: string
+  clientLogo?: string
+}
+
+export default function CalendarTable({ clientId, clientName, clientLogo }: CalendarTableProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [daysData, setDaysData] = useState<Record<string, DayData>>({})
   const [loading, setLoading] = useState(true)
@@ -96,13 +103,20 @@ export default function CalendarTable() {
   }, [])
 
   useEffect(() => {
+    if (clientId === null) {
+      setDaysData({})
+      setLoading(false)
+      return
+    }
     loadData()
-  }, [currentMonth])
+  }, [currentMonth, clientId])
 
   const loadData = async () => {
+    if (clientId === null) return
+    
     try {
       const monthKey = format(currentMonth, 'yyyy-MM')
-      const response = await fetch(`/api/work-time?month=${monthKey}`)
+      const response = await fetch(`/api/work-time?month=${monthKey}&clientId=${clientId}`)
       if (response.ok) {
         const data = await response.json()
         const monthData = data[monthKey] || {}
@@ -159,17 +173,19 @@ export default function CalendarTable() {
   }
 
   const saveData = async (updatedData: Record<string, DayData>) => {
+    if (clientId === null) return
+
     try {
       const monthKey = format(currentMonth, 'yyyy-MM')
       
-      // Pobierz istniejące dane
-      const existingResponse = await fetch('/api/work-time')
+      // Pobierz istniejące dane dla tego klienta
+      const existingResponse = await fetch(`/api/work-time?clientId=${clientId}`)
       let existingData = {}
       if (existingResponse.ok) {
         existingData = await existingResponse.json()
       }
       
-      // Zaktualizuj dane dla bieżącego miesiąca
+      // Zaktualizuj dane dla bieżącego miesiąca i klienta
       const updatedMonthData = {
         ...existingData,
         [monthKey]: updatedData,
@@ -180,7 +196,7 @@ export default function CalendarTable() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updatedMonthData),
+        body: JSON.stringify({ ...updatedMonthData, clientId }),
       })
       if (response.ok) {
         setDaysData(updatedData)
@@ -310,8 +326,63 @@ export default function CalendarTable() {
     return amount.toFixed(2)
   }
 
-  const generatePDF = () => {
-    const doc = new jsPDF()
+  const generatePDF = async () => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true
+    })
+    
+    // Załaduj czcionkę Roboto z obsługą polskich znaków
+    // Używamy skonwertowanej czcionki z pliku
+    let useRobotoFont = false
+    try {
+      // Dodaj czcionkę do jsPDF z pliku
+      doc.addFileToVFS(robotoFontName, robotoFontBase64)
+      doc.addFont(robotoFontName, 'Roboto', 'normal')
+      doc.addFont(robotoFontName, 'Roboto', 'bold') // Dodaj również wersję bold
+      
+      // Ustaw czcionkę jako domyślną
+      doc.setFont('Roboto', 'normal')
+      useRobotoFont = true
+      console.log('Czcionka Roboto została załadowana pomyślnie')
+    } catch (error) {
+      console.warn('Nie udało się załadować czcionki Roboto, używam domyślnej czcionki:', error)
+      // Kontynuuj z domyślną czcionką
+    }
+    
+    const pdfFont = useRobotoFont ? 'Roboto' : 'helvetica'
+    console.log('Używana czcionka PDF:', pdfFont)
+    
+    // Załaduj logotyp aplikacji dla footera
+    let appLogoImg: HTMLImageElement | null = null
+    try {
+      const logoImg = new Image()
+      logoImg.crossOrigin = 'anonymous'
+      
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('App logo load timeout'))
+        }, 3000)
+        
+        logoImg.onload = () => {
+          clearTimeout(timeout)
+          appLogoImg = logoImg
+          resolve()
+        }
+        
+        logoImg.onerror = () => {
+          clearTimeout(timeout)
+          resolve() // Kontynuuj bez logo
+        }
+        
+        logoImg.src = '/logo.png'
+      })
+    } catch (err) {
+      console.warn('Nie udało się załadować logotypu aplikacji dla footera:', err)
+    }
+    
     // Format miesiąca: "Listopad 2025" zamiast "listopada 2025"
     const monthNameRaw = format(currentMonth, 'MMMM yyyy', { locale: pl })
     // Usuń końcówkę "a" z miesiąca (np. "listopada" -> "listopad", "grudnia" -> "grudzień")
@@ -322,35 +393,74 @@ export default function CalendarTable() {
     doc.setFillColor(20, 20, 20) // #141414
     doc.rect(0, 0, doc.internal.pageSize.width, doc.internal.pageSize.height, 'F')
     
-    // Funkcja pomocnicza do konwersji polskich znaków na ASCII
-    // Standardowe czcionki jsPDF nie obsługują polskich znaków diakrytycznych
-    const encodePolish = (text: string): string => {
-      const polishMap: Record<string, string> = {
-        'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
-        'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+    // Nagłówek z logo i nazwą klienta
+    let startY = 18
+    
+    // Jeśli jest logo klienta, wyświetl je
+    if (clientLogo) {
+      try {
+        // Sprawdź czy to SVG (nie można bezpośrednio wstawić SVG do jsPDF)
+        const isSvg = clientLogo.toLowerCase().endsWith('.svg') || clientLogo.toLowerCase().includes('data:image/svg+xml')
+        
+        if (!isSvg) {
+          // Dla obrazów PNG/JPG, załaduj i wyświetl
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          
+          // Użyj Promise do asynchronicznego ładowania obrazu
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error('Image load timeout'))
+            }, 5000)
+            
+            img.onload = () => {
+              clearTimeout(timeout)
+              try {
+                const logoSize = 20
+                doc.addImage(img, 'PNG', 14, startY, logoSize, logoSize)
+                startY += logoSize + 10 // Zwiększono odstęp pod logotypem z 4 na 10
+                resolve()
+              } catch (err) {
+                reject(err)
+              }
+            }
+            img.onerror = () => {
+              clearTimeout(timeout)
+              reject(new Error('Failed to load image'))
+            }
+            
+            img.src = clientLogo
+          })
+        }
+        // Dla SVG pomijamy logo (jsPDF nie obsługuje SVG bezpośrednio)
+      } catch (err) {
+        console.error('Error loading client logo:', err)
+        // Kontynuuj bez logo
       }
-      return text.split('').map(char => polishMap[char] || char).join('')
     }
     
-    // Nagłówek - minimalistyczny
-    doc.setFontSize(14)
+    // Wyświetl nazwę klienta jeśli jest dostępna
+    if (clientName) {
+      doc.setFontSize(16)
+      doc.setTextColor(255, 255, 255) // Biały tekst
+      doc.setFont(pdfFont, 'bold')
+      doc.text(clientName, 14, startY)
+      startY += 8
+    }
+    
+    // Tytuł aplikacji - mniejszy, poniżej nazwy klienta
+    doc.setFontSize(12)
     doc.setTextColor(210, 47, 39) // #d22f27
-    doc.setFont('helvetica', 'bold')
-    // Używamy metody text z opcją UTF-8
-    try {
-      doc.text(encodePolish('Work Time Tracker - Best Market / Foodex24 / RSA'), 14, 18, { encoding: 'UTF8' })
-    } catch (e) {
-      doc.text('Work Time Tracker - Best Market / Foodex24 / RSA', 14, 18)
-    }
+    doc.setFont(pdfFont, 'bold')
+    doc.text('Afisza Time Tracker', 14, startY)
+    startY += 6
     
+    // Miesiąc i rok
     doc.setFontSize(11)
     doc.setTextColor(255, 255, 255) // Biały tekst na ciemnym tle
-    doc.setFont('helvetica', 'normal')
-    try {
-      doc.text(encodePolish(monthName), 14, 26, { encoding: 'UTF8' })
-    } catch (e) {
-      doc.text(monthName, 14, 26)
-    }
+    doc.setFont(pdfFont, 'normal')
+    doc.text(monthName, 14, startY)
+    startY += 8
     
     // Przygotuj dane do tabeli - zgodnie z obecną strukturą
     const tableData: any[] = []
@@ -368,13 +478,13 @@ export default function CalendarTable() {
       const dayName = getDayName(day) // Pełna nazwa dnia
       const dateStr = format(day, 'dd.MM.yyyy') // Format: 01.11.2025
       
-      // Format daty z pełną nazwą dnia pod spodem - kodujemy polskie znaki
-      const dateWithDay = `${dateStr}\n${encodePolish(dayName)}`
+      // Format daty z pełną nazwą dnia pod spodem - zachowujemy polskie znaki
+      const dateWithDay = `${dateStr}\n${dayName}`
       
       // Zbierz wszystkich unikalnych osób zlecających dla tego dnia
       const dayAssigners = [...new Set(dayData.tasks.map(t => t.assignedBy).filter(Boolean))]
       const assignersText = dayAssigners.length > 0 
-        ? dayAssigners.map(name => encodePolish(name)).join('\n')
+        ? dayAssigners.join('\n')
         : '-'
       
       if (dayData.tasks.length === 0) {
@@ -392,9 +502,9 @@ export default function CalendarTable() {
             ? task.text.substring(0, 37) + '...' 
             : task.text
           const timeRange = `${task.startTime}-${task.endTime}`
-          const status = encodePolish(task.status)
-          // Format zadania: numer zadania, tekst i czas
-          const taskInfo = `${taskNumber}. ${encodePolish(taskText)}\n${timeRange}`
+          const status = task.status
+          // Format zadania: numer zadania, tekst i czas - zachowujemy polskie znaki
+          const taskInfo = `${taskNumber}. ${taskText}\n${timeRange}`
           
           // Status z numerem zadania
           const statusWithNumber = `${taskNumber}. ${status}`
@@ -415,23 +525,29 @@ export default function CalendarTable() {
       }
     })
     
-    // Dodaj wiersz z sumą - kodujemy polskie znaki
+    // Dodaj wiersz z sumą - zachowujemy polskie znaki
     const monthTotal = calculateMonthTotal()
     const totalAmount = calculateTotalAmount()
     tableData.push([
-      encodePolish('RAZEM'),
+      'RAZEM',
       monthTotal,
       '',
       '',
-      totalAmount ? `${totalAmount} ${encodePolish('zl')}` : ''
+      totalAmount ? `${totalAmount} zł` : ''
     ])
     
+    // Ustaw czcionkę przed generowaniem tabeli
+    if (useRobotoFont) {
+      doc.setFont('Roboto', 'normal')
+    }
+    
     // Generuj tabelę - kompaktowa i minimalistyczna
-    // Wszystkie dane są już zakodowane przez encodePolish
+    // Wszystkie dane zachowują polskie znaki
+    // Użyj opcji które wspierają UTF-8
     autoTable(doc, {
-      head: [[encodePolish('Dzien'), encodePolish('Godziny'), encodePolish('Kto zlecil'), encodePolish('Zadania'), encodePolish('Status')]],
+      head: [['Dzień', 'Godziny', 'Kto zlecił', 'Zadania', 'Status']],
       body: tableData,
-      startY: 32,
+      startY: startY,
       theme: 'plain',
       styles: {
         fontSize: 7,
@@ -440,8 +556,10 @@ export default function CalendarTable() {
         fillColor: [20, 20, 20], // Ciemne tło #141414
         lineColor: [50, 50, 50], // Subtelne linie
         lineWidth: 0.1,
-        font: 'helvetica',
+        font: pdfFont, // Użyj czcionki Roboto z obsługą polskich znaków lub domyślnej
         fontStyle: 'normal',
+        overflow: 'linebreak',
+        halign: 'left',
       },
       headStyles: {
         fillColor: [210, 47, 39], // #d22f27
@@ -449,7 +567,12 @@ export default function CalendarTable() {
         fontStyle: 'bold',
         fontSize: 8,
         cellPadding: 3,
-        font: 'helvetica',
+        font: pdfFont, // Użyj czcionki Roboto z obsługą polskich znaków lub domyślnej
+        fontName: pdfFont, // Dodatkowo ustaw fontName dla pewności
+      },
+      bodyStyles: {
+        font: pdfFont, // Upewnij się że body też używa Roboto
+        fontName: pdfFont,
       },
       columnStyles: {
         0: { cellWidth: 30, halign: 'left' }, // Dzień
@@ -463,30 +586,67 @@ export default function CalendarTable() {
       },
       margin: { top: 32, right: 14, bottom: 20, left: 14 },
       didDrawPage: (data: any) => {
+        const pageHeight = doc.internal.pageSize.height
+        const pageWidth = doc.internal.pageSize.width
+        
+        // Dodaj footer na każdej stronie
+        const footerLogoSize = 8
+        const footerY = pageHeight - 15
+        const footerX = 14
+        
+        try {
+          // Dodaj logotyp aplikacji (jeśli został załadowany)
+          if (appLogoImg) {
+            doc.addImage(appLogoImg, 'PNG', footerX, footerY, footerLogoSize, footerLogoSize)
+            
+            // Dodaj nazwę "Afisza" obok logotypu
+            doc.setFontSize(8)
+            doc.setTextColor(210, 47, 39) // #d22f27
+            doc.setFont(pdfFont, 'bold')
+            doc.text('Afisza', footerX + footerLogoSize + 4, footerY + footerLogoSize / 2 + 2)
+          } else {
+            // Jeśli logo się nie załadowało, dodaj tylko nazwę
+            doc.setFontSize(8)
+            doc.setTextColor(210, 47, 39) // #d22f27
+            doc.setFont(pdfFont, 'bold')
+            doc.text('Afisza', footerX, footerY + 4)
+          }
+          
+          // Dodaj napis "wygenerowano automatycznie z aplikacji." po prawej stronie
+          doc.setFontSize(7)
+          doc.setTextColor(200, 200, 200) // Szary tekst
+          doc.setFont(pdfFont, 'normal')
+          const footerText = 'wygenerowano automatycznie z aplikacji.'
+          const textWidth = doc.getTextWidth(footerText)
+          doc.text(footerText, pageWidth - textWidth - 14, footerY + (appLogoImg ? footerLogoSize / 2 + 2 : 4))
+        } catch (err) {
+          console.error('Error adding footer:', err)
+        }
+        
         // Dodaj kwotę do opłaty na ostatniej stronie (jeśli istnieje)
         if (totalAmount && data.pageNumber === data.pageCount) {
           doc.setFontSize(10)
           doc.setTextColor(210, 47, 39) // #d22f27
-          doc.setFont('helvetica', 'bold')
-          try {
+          doc.setFont(pdfFont, 'bold')
           doc.text(
-            encodePolish(`Kwota do oplaty: ${totalAmount} zl`),
+            `Kwota do opłaty: ${totalAmount} zł`,
             14,
             data.cursor.y + 8
           )
-        } catch (e) {
-          doc.text(
-            encodePolish(`Kwota do oplaty: ${totalAmount} zl`),
-            14,
-            data.cursor.y + 8
-          )
-        }
         }
       },
     })
     
-    // Zapisz PDF
-    const fileName = `work-time-${monthYear}.pdf`
+    // Zapisz PDF z nazwą klienta
+    // Przygotuj bezpieczną nazwę klienta dla pliku (usunąć znaki specjalne, spacje zamienić na podkreślenia)
+    const safeClientName = clientName 
+      ? clientName
+          .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s-]/g, '') // Usuń znaki specjalne, zostaw polskie znaki
+          .replace(/\s+/g, '-') // Zamień spacje na myślniki
+          .toLowerCase()
+          .substring(0, 50) // Ogranicz długość
+      : 'default'
+    const fileName = `work-time-${safeClientName}-${monthYear}.pdf`
     doc.save(fileName)
   }
 

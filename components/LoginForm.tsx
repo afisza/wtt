@@ -52,11 +52,14 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
     <div className="flex justify-center items-center min-h-screen bg-[#141414] p-4">
       <div className="bg-[#141414] p-6 rounded border border-[#2a2a2a] w-full max-w-[340px]">
         <div className="text-center mb-5">
-          <div className="w-9 h-9 bg-[#d22f27] rounded mx-auto mb-2 flex items-center justify-center">
-            <span className="text-base">⏱️</span>
-          </div>
+          <img 
+            src="/logo.png" 
+            alt="Afisza Time Tracker" 
+            className="w-9 h-9 rounded mx-auto mb-2 object-contain"
+            style={{ borderRadius: '3px' }}
+          />
           <h1 className="text-sm font-semibold text-white mb-1.5">
-            Work Time Tracker - Best Market / Foodex24 / RSA
+            Afisza Time Tracker
           </h1>
           <p className="text-[#888] text-[10px]">
             Zaloguj się do swojego konta

@@ -50,7 +50,7 @@ function isMySQLAvailable(): boolean {
 }
 
 // Pobierz dane dla miesiąca
-export async function getMonthData(userId: number, monthKey: string): Promise<Record<string, DayData>> {
+export async function getMonthData(userId: number, monthKey: string, clientId: number): Promise<Record<string, DayData>> {
   if (!isMySQLAvailable()) {
     return {}
   }
@@ -64,11 +64,11 @@ export async function getMonthData(userId: number, monthKey: string): Promise<Re
     // Ostatni dzień miesiąca
     const endDate = new Date(year, month, 0).toISOString().split('T')[0]
 
-    // Pobierz wszystkie dni pracy dla miesiąca
+    // Pobierz wszystkie dni pracy dla miesiąca i klienta
     const workDays = await query(
       `SELECT id, date FROM work_days 
-       WHERE user_id = ? AND date >= ? AND date <= ?`,
-      [userId, startDate, endDate]
+       WHERE user_id = ? AND client_id = ? AND date >= ? AND date <= ?`,
+      [userId, clientId, startDate, endDate]
     ) as any[]
 
     const result: Record<string, DayData> = {}
@@ -259,7 +259,7 @@ async function ensureStatusColumnExists(): Promise<void> {
 }
 
 // Zapisz dane dla miesiąca
-export async function saveMonthData(userId: number, monthKey: string, daysData: Record<string, DayData>): Promise<void> {
+export async function saveMonthData(userId: number, monthKey: string, daysData: Record<string, DayData>, clientId: number): Promise<void> {
   if (!isMySQLAvailable()) {
     throw new Error('MySQL not available')
   }
@@ -273,16 +273,16 @@ export async function saveMonthData(userId: number, monthKey: string, daysData: 
 
       // Sprawdź czy dzień pracy istnieje, jeśli nie - utwórz
       let workDayResult = await query(
-        `SELECT id FROM work_days WHERE user_id = ? AND date = ?`,
-        [userId, dateKey]
+        `SELECT id FROM work_days WHERE user_id = ? AND client_id = ? AND date = ?`,
+        [userId, clientId, dateKey]
       ) as any[]
 
       let workDayId: number
 
       if (workDayResult.length === 0) {
         const insertResult = await query(
-          `INSERT INTO work_days (user_id, date) VALUES (?, ?)`,
-          [userId, dateKey]
+          `INSERT INTO work_days (user_id, client_id, date) VALUES (?, ?, ?)`,
+          [userId, clientId, dateKey]
         ) as any
         workDayId = insertResult.insertId
       } else {

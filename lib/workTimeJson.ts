@@ -116,14 +116,15 @@ function ensureDataFile() {
 }
 
 // Pobierz dane dla miesiąca (JSON)
-export function getMonthDataJSON(userId: number, monthKey: string): Record<string, DayData> {
+export function getMonthDataJSON(userId: number, monthKey: string, clientId: number): Record<string, DayData> {
   ensureDataFile()
   try {
     const fileContent = fs.readFileSync(DATA_FILE, 'utf-8')
     const data = fileContent ? JSON.parse(fileContent) : {}
-    const dataTyped = data as Record<string | number, Record<string, Record<string, any>>>
+    const dataTyped = data as Record<string | number, Record<string | number, Record<string, Record<string, any>>>>
     const userData = dataTyped[userId] || {}
-    const monthData = userData[monthKey] || {}
+    const clientData = userData[clientId] || {}
+    const monthData = clientData[monthKey] || {}
     
     // Normalizuj zadania dla każdego dnia i oblicz godziny
     const normalizedData: Record<string, DayData> = {}
@@ -143,7 +144,7 @@ export function getMonthDataJSON(userId: number, monthKey: string): Record<strin
 }
 
 // Zapisz dane dla miesiąca (JSON)
-export function saveMonthDataJSON(userId: number, monthKey: string, daysData: Record<string, DayData>): void {
+export function saveMonthDataJSON(userId: number, monthKey: string, daysData: Record<string, DayData>, clientId: number): void {
   ensureDataFile()
   
   let data = {}
@@ -155,11 +156,14 @@ export function saveMonthDataJSON(userId: number, monthKey: string, daysData: Re
   }
   
   // Merge new data with existing data
-  const dataTyped = data as Record<string | number, Record<string, any>>
+  const dataTyped = data as Record<string | number, Record<string | number, Record<string, any>>>
   if (!dataTyped[userId]) {
     dataTyped[userId] = {}
   }
-  dataTyped[userId] = { ...dataTyped[userId], [monthKey]: daysData }
+  if (!dataTyped[userId][clientId]) {
+    dataTyped[userId][clientId] = {}
+  }
+  dataTyped[userId][clientId] = { ...dataTyped[userId][clientId], [monthKey]: daysData }
   
   fs.writeFileSync(DATA_FILE, JSON.stringify(dataTyped, null, 2), 'utf-8')
 }

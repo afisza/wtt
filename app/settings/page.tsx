@@ -31,7 +31,7 @@ const SettingsPage = (): JSX.Element | null => {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'config' | 'info' | 'rate' | 'assigners'>('config')
+  const [activeTab, setActiveTab] = useState<'config' | 'info' | 'rate' | 'assigners' | 'clients'>('config')
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
   
@@ -614,6 +614,35 @@ const SettingsPage = (): JSX.Element | null => {
             }}
           >
             Osoby zlecające
+          </button>
+          <button
+            onClick={() => setActiveTab('clients')}
+            style={{
+              padding: '8px 16px',
+              background: activeTab === 'clients' 
+                ? '#d22f27' 
+                : 'transparent',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '15px',
+              fontWeight: activeTab === 'clients' ? '600' : '500',
+              color: activeTab === 'clients' ? 'white' : (isDark ? '#E5E7EB' : '#6B7280'),
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'clients') {
+                e.currentTarget.style.background = isDark ? '#374151' : '#F3F4F6'
+                e.currentTarget.style.color = '#d22f27'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'clients') {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.color = isDark ? '#E5E7EB' : '#6B7280'
+              }
+            }}
+          >
+            Klienci
           </button>
         </div>
 
@@ -1769,7 +1798,540 @@ const SettingsPage = (): JSX.Element | null => {
             )}
           </div>
         )}
+
+        {activeTab === 'clients' && (
+          <ClientsSection isDark={isDark} />
+        )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Komponent sekcji klientów
+function ClientsSection({ isDark }: { isDark: boolean }) {
+  const [clients, setClients] = useState<any[]>([])
+  const [clientsLoading, setClientsLoading] = useState(false)
+  const [editingClient, setEditingClient] = useState<number | null>(null)
+  const [newClientName, setNewClientName] = useState('')
+  const [newClientLogo, setNewClientLogo] = useState('')
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [editingClientName, setEditingClientName] = useState('')
+  const [editingClientLogo, setEditingClientLogo] = useState('')
+
+  useEffect(() => {
+    loadClients()
+    // Sprawdź czy trzeba przeprowadzić migrację
+    checkAndMigrateData()
+  }, [])
+
+  const checkAndMigrateData = async () => {
+    try {
+      // Sprawdź czy są dane bez klienta
+      const response = await fetch('/api/clients/migrate', {
+        method: 'POST',
+      })
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          if (result.updatedRows > 0) {
+            alert(`Migracja zakończona: ${result.updatedRows} dni pracy zostało przypisanych do klienta "Best Market"`)
+          } else if (result.clientId) {
+            // Utworzono klienta dla istniejących danych JSON
+            console.log('Client "Best Market" created for existing data')
+          }
+          loadClients()
+        }
+      }
+    } catch (error) {
+      console.error('Migration check error:', error)
+    }
+  }
+
+  const loadClients = async () => {
+    setClientsLoading(true)
+    try {
+      const response = await fetch('/api/clients')
+      if (response.ok) {
+        const data = await response.json()
+        setClients(data)
+      }
+    } catch (error) {
+      console.error('Error loading clients:', error)
+      alert('Błąd podczas ładowania klientów')
+    } finally {
+      setClientsLoading(false)
+    }
+  }
+
+  const handleUploadLogo = async (file: File, isEdit: boolean = false) => {
+    setUploadingLogo(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/clients/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (isEdit) {
+          setEditingClientLogo(data.url)
+        } else {
+          setNewClientLogo(data.url)
+        }
+      } else {
+        const error = await response.json()
+        alert(error.details || 'Błąd podczas uploadu logo')
+      }
+    } catch (error) {
+      console.error('Error uploading logo:', error)
+      alert('Błąd podczas uploadu logo')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
+  const handleCreateClient = async () => {
+    if (!newClientName.trim()) {
+      alert('Nazwa klienta jest wymagana')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newClientName.trim(), logo: newClientLogo }),
+      })
+
+      if (response.ok) {
+        const newClient = await response.json()
+        setClients([...clients, newClient])
+        setNewClientName('')
+        setNewClientLogo('')
+        window.dispatchEvent(new Event('clientUpdated'))
+        alert('Klient został dodany')
+      } else {
+        const error = await response.json()
+        alert(error.details || 'Błąd podczas tworzenia klienta')
+      }
+    } catch (error) {
+      console.error('Error creating client:', error)
+      alert('Błąd podczas tworzenia klienta')
+    }
+  }
+
+  const handleUpdateClient = async (id: number) => {
+    if (!editingClientName.trim()) {
+      alert('Nazwa klienta jest wymagana')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/clients', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: editingClientName.trim(), logo: editingClientLogo }),
+      })
+
+      if (response.ok) {
+        await loadClients()
+        setEditingClient(null)
+        setEditingClientName('')
+        setEditingClientLogo('')
+        window.dispatchEvent(new Event('clientUpdated'))
+        alert('Klient został zaktualizowany')
+      } else {
+        const error = await response.json()
+        alert(error.details || 'Błąd podczas aktualizacji klienta')
+      }
+    } catch (error) {
+      console.error('Error updating client:', error)
+      alert('Błąd podczas aktualizacji klienta')
+    }
+  }
+
+  const handleDeleteClient = async (id: number) => {
+    if (!confirm('Czy na pewno chcesz usunąć tego klienta? Wszystkie powiązane dane zostaną usunięte.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/clients?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        await loadClients()
+        window.dispatchEvent(new Event('clientUpdated'))
+        alert('Klient został usunięty')
+      } else {
+        const error = await response.json()
+        alert(error.details || 'Błąd podczas usuwania klienta')
+      }
+    } catch (error) {
+      console.error('Error deleting client:', error)
+      alert('Błąd podczas usuwania klienta')
+    }
+  }
+
+  const handleEdit = (client: any) => {
+    setEditingClient(client.id)
+    setEditingClientName(client.name)
+    setEditingClientLogo(client.logo || '')
+  }
+
+  const handleCancelEdit = () => {
+    setEditingClient(null)
+    setEditingClientName('')
+    setEditingClientLogo('')
+  }
+
+  return (
+    <div>
+      <h2 style={{ 
+        marginBottom: '24px',
+        fontSize: '22px',
+        fontWeight: '700',
+        color: isDark ? '#F9FAFB' : '#1F2937',
+        letterSpacing: '-0.5px'
+      }}>
+        Klienci
+      </h2>
+      
+      {/* Formularz dodawania */}
+      <div style={{ 
+        marginBottom: '24px', 
+        padding: '16px', 
+        background: isDark ? '#1a1a1a' : '#F9FAFB',
+        borderRadius: '8px',
+        border: '1px solid #2a2a2a'
+      }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: isDark ? '#F9FAFB' : '#1F2937', marginBottom: '12px' }}>
+          Dodaj nowego klienta
+        </h3>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+          {/* Logo preview/upload */}
+          <div style={{ position: 'relative' }}>
+            {newClientLogo ? (
+              <img
+                src={newClientLogo}
+                alt="Preview"
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '4px',
+                  objectFit: 'cover',
+                  border: '2px solid #d22f27'
+                }}
+              />
+            ) : (
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '4px',
+                background: '#2a2a2a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px dashed #888'
+              }}>
+                <User size={24} color="#888" />
+              </div>
+            )}
+            <label style={{
+              position: 'absolute',
+              bottom: '-8px',
+              right: '-8px',
+              background: '#d22f27',
+              borderRadius: '50%',
+              width: '24px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              border: '2px solid #141414'
+            }}>
+              <Upload size={12} color="white" />
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleUploadLogo(file, false)
+                }}
+              />
+            </label>
+            {newClientLogo && (
+              <button
+                onClick={() => setNewClientLogo('')}
+                style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  right: '-8px',
+                  background: '#EF4444',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  border: 'none',
+                  padding: 0
+                }}
+              >
+                <X size={12} color="white" />
+              </button>
+            )}
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <input
+              type="text"
+              value={newClientName}
+              onChange={(e) => setNewClientName(e.target.value)}
+              placeholder="Nazwa klienta..."
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                fontSize: '15px',
+                background: '#1a1a1a',
+                color: '#ffffff',
+                border: '1px solid #2a2a2a',
+                borderRadius: '4px',
+                marginBottom: '8px',
+                outline: 'none'
+              }}
+            />
+            <button
+              onClick={handleCreateClient}
+              disabled={uploadingLogo}
+              style={{
+                padding: '6px 12px',
+                background: '#d22f27',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: uploadingLogo ? 'not-allowed' : 'pointer',
+                opacity: uploadingLogo ? 0.6 : 1
+              }}
+            >
+              <Plus size={14} color="#ffffff" style={{ marginRight: '4px', display: 'inline-block', verticalAlign: 'middle' }} />
+              Dodaj klienta
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista klientów */}
+      <div>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: isDark ? '#F9FAFB' : '#1F2937', marginBottom: '12px' }}>
+          Lista klientów ({clients.length})
+        </h3>
+        {clientsLoading ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+            Ładowanie...
+          </div>
+        ) : clients.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+            Brak klientów
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {clients.map((client) => (
+              <div
+                key={client.id}
+                style={{
+                  padding: '16px',
+                  background: isDark ? '#1a1a1a' : '#F9FAFB',
+                  borderRadius: '8px',
+                  border: '1px solid #2a2a2a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px'
+                }}
+              >
+                {editingClient === client.id ? (
+                  <>
+                    <div style={{ position: 'relative' }}>
+                      {editingClientLogo ? (
+                        <img
+                          src={editingClientLogo}
+                          alt="Preview"
+                          style={{
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '4px',
+                            objectFit: 'cover',
+                            border: '2px solid #d22f27'
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: '60px',
+                          height: '60px',
+                          borderRadius: '4px',
+                          background: '#2a2a2a',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '2px dashed #888'
+                        }}>
+                          <User size={24} color="#888" />
+                        </div>
+                      )}
+                      <label style={{
+                        position: 'absolute',
+                        bottom: '-8px',
+                        right: '-8px',
+                        background: '#d22f27',
+                        borderRadius: '50%',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        border: '2px solid #141414'
+                      }}>
+                        <Upload size={12} color="white" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleUploadLogo(file, true)
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <input
+                      type="text"
+                      value={editingClientName}
+                      onChange={(e) => setEditingClientName(e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        fontSize: '15px',
+                        background: '#1a1a1a',
+                        color: '#ffffff',
+                        border: '1px solid #d22f27',
+                        borderRadius: '4px',
+                        outline: 'none'
+                      }}
+                    />
+                    <button
+                      onClick={() => handleUpdateClient(client.id)}
+                      style={{
+                        padding: '6px 12px',
+                        background: '#10B981',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Check size={14} color="#ffffff" />
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      style={{
+                        padding: '6px 12px',
+                        background: 'transparent',
+                        color: '#EF4444',
+                        border: '1px solid #EF4444',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <X size={14} color="#EF4444" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {client.logo ? (
+                      <img
+                        src={client.logo}
+                        alt={client.name}
+                        style={{
+                          width: '60px',
+                          height: '60px',
+                          borderRadius: '4px',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '60px',
+                        height: '60px',
+                        borderRadius: '4px',
+                        background: '#d22f27',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '20px',
+                        fontWeight: '600',
+                        color: '#ffffff'
+                      }}>
+                        {client.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '15px', fontWeight: '600', color: isDark ? '#F9FAFB' : '#1F2937' }}>
+                        {client.name}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleEdit(client)}
+                      style={{
+                        padding: '6px 12px',
+                        background: 'transparent',
+                        color: '#d22f27',
+                        border: '1px solid #d22f27',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Edit2 size={14} color="#d22f27" />
+                      Edytuj
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClient(client.id)}
+                      style={{
+                        padding: '6px 12px',
+                        background: 'transparent',
+                        color: '#EF4444',
+                        border: '1px solid #EF4444',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Trash2 size={14} color="#EF4444" />
+                      Usuń
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

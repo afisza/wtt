@@ -4,8 +4,13 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 
 export const metadata: Metadata = {
-  title: 'Work Time Tracker (WTT)',
+  title: 'Afisza Time Tracker',
   description: 'Aplikacja do śledzenia czasu pracy',
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/favicon.png',
+  },
 }
 
 export default function RootLayout({

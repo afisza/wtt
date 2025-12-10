@@ -30,3 +30,4 @@ SET status = CASE
   ELSE 'do zrobienia'
 END
 WHERE status IS NULL OR status = '';
+
