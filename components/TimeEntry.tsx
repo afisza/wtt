@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Check, X } from 'lucide-react'
 
 interface TimeSlot {
   start: string
@@ -133,7 +134,7 @@ export default function TimeEntry({ date, timeSlots, type, onUpdate }: TimeEntry
                     e.currentTarget.style.transform = 'scale(1)'
                   }}
                 >
-                  ✓
+                  <Check size={14} color="white" />
                 </button>
                 <button
                   onClick={() => {
@@ -143,7 +144,10 @@ export default function TimeEntry({ date, timeSlots, type, onUpdate }: TimeEntry
                   style={{
                     ...buttonStyle,
                     background: '#EF4444',
-                    color: 'white'
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = '#DC2626'
@@ -154,7 +158,7 @@ export default function TimeEntry({ date, timeSlots, type, onUpdate }: TimeEntry
                     e.currentTarget.style.transform = 'scale(1)'
                   }}
                 >
-                  ✕
+                  <X size={14} color="white" />
                 </button>
               </>
             ) : (

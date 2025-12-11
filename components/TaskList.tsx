@@ -53,11 +53,11 @@ const renderTextWithLinks = (text: string) => {
   return parts.length > 0 ? <>{parts}</> : text
 }
 
-export type TaskStatus = 'wykonano' | 'w trakcie' | 'do zrobienia' | 'anulowane'
+export type TaskStatus = 'wykonano' | 'w trakcie' | 'do zrobienia' | 'anulowane' | 'zaplanowano'
 
 export interface Task {
   text: string
-  assignedBy: string  // Kto zlecił zadanie
+  assignedBy: string[]  // Kto zlecił zadanie (może być wiele osób)
   startTime: string   // Format: HH:MM
   endTime: string     // Format: HH:MM
   status: TaskStatus  // Status zadania
@@ -67,22 +67,25 @@ interface TaskListProps {
   date: string
   tasks: Task[]
   onUpdate: (tasks: Task[]) => void
+  onDragStart?: (e: React.DragEvent, taskIndex: number) => void
+  onDragEnd?: (e: React.DragEvent) => void
 }
 
-const statusOptions: TaskStatus[] = ['wykonano', 'w trakcie', 'do zrobienia', 'anulowane']
+const statusOptions: TaskStatus[] = ['wykonano', 'w trakcie', 'do zrobienia', 'anulowane', 'zaplanowano']
 
-export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
+export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd }: TaskListProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [inlineEditingIndex, setInlineEditingIndex] = useState<number | null>(null)
   const [inlineEditingText, setInlineEditingText] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [newTask, setNewTask] = useState('')
-  const [newAssignedBy, setNewAssignedBy] = useState('')
+  const [newAssignedBy, setNewAssignedBy] = useState<string[]>([])
+  const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set())
   const [newStartTime, setNewStartTime] = useState('')
   const [newEndTime, setNewEndTime] = useState('')
   const [newStatus, setNewStatus] = useState<TaskStatus>('do zrobienia')
   const [editingTask, setEditingTask] = useState('')
-  const [editingAssignedBy, setEditingAssignedBy] = useState('')
+  const [editingAssignedBy, setEditingAssignedBy] = useState<string[]>([])
   const [editingStartTime, setEditingStartTime] = useState('')
   const [editingEndTime, setEditingEndTime] = useState('')
   const [editingStatus, setEditingStatus] = useState<TaskStatus>('do zrobienia')
@@ -96,7 +99,9 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
   useEffect(() => {
     const loadAssigners = async () => {
       try {
-        const response = await fetch('/api/assigners')
+        const response = await fetch('/api/assigners', {
+          credentials: 'include',
+        })
         if (response.ok) {
           const data = await response.json()
           setAssigners(data)
@@ -134,18 +139,42 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
     )
   }
 
+  // Funkcja do sortowania zadań chronologicznie według czasu "od" i "do"
+  const sortTasksChronologically = (tasksToSort: Task[]): Task[] => {
+    return [...tasksToSort].sort((a, b) => {
+      // Konwertuj czas na minuty od początku dnia dla łatwiejszego porównania
+      const parseTime = (time: string): number => {
+        const [hours, minutes] = (time || '08:00').split(':').map(Number)
+        return hours * 60 + minutes
+      }
+      
+      const aStart = parseTime(a.startTime)
+      const bStart = parseTime(b.startTime)
+      
+      // Najpierw sortuj według czasu rozpoczęcia
+      if (aStart !== bStart) {
+        return aStart - bStart
+      }
+      
+      // Jeśli czas rozpoczęcia jest taki sam, sortuj według czasu zakończenia
+      const aEnd = parseTime(a.endTime)
+      const bEnd = parseTime(b.endTime)
+      return aEnd - bEnd
+    })
+  }
+
   const handleAdd = () => {
     if (newTask.trim()) {
       onUpdate([...tasks, { 
         text: newTask.trim(), 
-        assignedBy: newAssignedBy.trim(),
+        assignedBy: newAssignedBy,
         startTime: newStartTime.trim() || '08:00',
         endTime: newEndTime.trim() || '16:00',
         status: newStatus
       }])
       showToast('Zadanie zostało dodane', 'success')
       setNewTask('')
-      setNewAssignedBy('')
+      setNewAssignedBy([])
       setNewStartTime('')
       setNewEndTime('')
       setNewStatus('do zrobienia')
@@ -155,24 +184,38 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
 
   const handleCancelAdd = () => {
     setNewTask('')
-    setNewAssignedBy('')
+    setNewAssignedBy([])
     setNewStartTime('')
     setNewEndTime('')
     setNewStatus('do zrobienia')
     setShowAddForm(false)
   }
 
-  const handleInlineEdit = (index: number) => {
-    setInlineEditingIndex(index)
-    setInlineEditingText(tasks[index].text)
+  const handleInlineEdit = (task: Task) => {
+    const originalIndex = tasks.findIndex(t => 
+      t.text === task.text && 
+      t.startTime === task.startTime && 
+      t.endTime === task.endTime &&
+      JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)
+    )
+    setInlineEditingIndex(originalIndex)
+    setInlineEditingText(task.text)
   }
 
-  const handleInlineSave = (index: number) => {
+  const handleInlineSave = (task: Task) => {
     if (inlineEditingText.trim()) {
-      const updated = [...tasks]
-      updated[index] = { ...updated[index], text: inlineEditingText.trim() }
-      onUpdate(updated)
-      showToast('Zadanie zostało zaktualizowane', 'success')
+      const originalIndex = tasks.findIndex(t => 
+        t.text === task.text && 
+        t.startTime === task.startTime && 
+        t.endTime === task.endTime &&
+        JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)
+      )
+      if (originalIndex !== -1) {
+        const updated = [...tasks]
+        updated[originalIndex] = { ...updated[originalIndex], text: inlineEditingText.trim() }
+        onUpdate(updated)
+        showToast('Zadanie zostało zaktualizowane', 'success')
+      }
     }
     setInlineEditingIndex(null)
     setInlineEditingText('')
@@ -183,54 +226,113 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
     setInlineEditingText('')
   }
 
-  const handleEdit = (index: number) => {
-    setEditingIndex(index)
-    setEditingTask(tasks[index].text)
-    setEditingAssignedBy(tasks[index].assignedBy)
-    setEditingStartTime(tasks[index].startTime || '')
-    setEditingEndTime(tasks[index].endTime || '')
-    setEditingStatus(tasks[index].status)
+  const handleEdit = (task: Task) => {
+    const originalIndex = tasks.findIndex(t => 
+      t.text === task.text && 
+      t.startTime === task.startTime && 
+      t.endTime === task.endTime &&
+      JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)
+    )
+    setEditingIndex(originalIndex)
+    setEditingTask(task.text)
+    setEditingAssignedBy(Array.isArray(task.assignedBy) ? task.assignedBy : (task.assignedBy ? [task.assignedBy] : []))
+    setEditingStartTime(task.startTime || '')
+    setEditingEndTime(task.endTime || '')
+    setEditingStatus(task.status)
   }
 
-  const handleSave = (index: number) => {
+  const handleSave = (task: Task) => {
     if (editingTask.trim()) {
-      const updated = [...tasks]
-      updated[index] = { 
-        text: editingTask.trim(), 
-        assignedBy: editingAssignedBy.trim(),
-        startTime: editingStartTime.trim() || '08:00',
-        endTime: editingEndTime.trim() || '16:00',
-        status: editingStatus
+      const originalIndex = tasks.findIndex(t => 
+        t.text === task.text && 
+        t.startTime === task.startTime && 
+        t.endTime === task.endTime &&
+        JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)
+      )
+      if (originalIndex !== -1) {
+        const updated = [...tasks]
+        updated[originalIndex] = { 
+          text: editingTask.trim(), 
+          assignedBy: editingAssignedBy,
+          startTime: editingStartTime.trim() || '08:00',
+          endTime: editingEndTime.trim() || '16:00',
+          status: editingStatus
+        }
+        onUpdate(updated)
+        showToast('Zadanie zostało zaktualizowane', 'success')
       }
-      onUpdate(updated)
-      showToast('Zadanie zostało zaktualizowane', 'success')
     }
     setEditingIndex(null)
     setEditingTask('')
-    setEditingAssignedBy('')
+    setEditingAssignedBy([])
     setEditingStartTime('')
     setEditingEndTime('')
     setEditingStatus('do zrobienia')
   }
 
-  const handleDelete = (index: number) => {
-    const updated = tasks.filter((_, i) => i !== index)
+  const handleDelete = (task: Task) => {
+    const updated = tasks.filter(t => 
+      !(t.text === task.text && 
+        t.startTime === task.startTime && 
+        t.endTime === task.endTime &&
+        JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy))
+    )
     onUpdate(updated)
     showToast('Zadanie zostało usunięte', 'success')
   }
+
+  // Sortuj zadania chronologicznie przed renderowaniem
+  const sortedTasks = sortTasksChronologically(tasks)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
       {tasks.length === 0 && !showAddForm && (
         <div style={{ fontSize: '13px', color: '#888', padding: '4px 0' }}>-</div>
       )}
-      {tasks.map((task, index) => {
-        const isEditing = editingIndex === index
-        const isInlineEditing = inlineEditingIndex === index
+      {sortedTasks.map((task, index) => {
+        // Znajdź oryginalny indeks zadania w nieposortowanej tablicy
+        const originalIndex = tasks.findIndex(t => 
+          t.text === task.text && 
+          t.startTime === task.startTime && 
+          t.endTime === task.endTime &&
+          JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy) &&
+          t.status === task.status
+        )
+        const isEditing = editingIndex === originalIndex
+        const isInlineEditing = inlineEditingIndex === originalIndex
         const taskNumber = index + 1
 
         return (
-          <div key={index} style={{ display: 'flex', gap: '4px', alignItems: 'center', padding: '3px', background: '#1a1a1a', borderRadius: '3px', border: '1px solid #2a2a2a', marginBottom: index < tasks.length - 1 ? '2px' : '0px', minHeight: '22px' }}>
+          <div 
+            key={index} 
+            draggable={!!onDragStart}
+            onDragStart={onDragStart ? (e) => onDragStart(e, originalIndex) : undefined}
+            onDragEnd={onDragEnd}
+            style={{ 
+              display: 'flex', 
+              gap: '4px', 
+              alignItems: 'center', 
+              padding: '3px', 
+              background: '#1a1a1a', 
+              borderRadius: '3px', 
+              border: '1px solid #2a2a2a', 
+              marginBottom: index < sortedTasks.length - 1 ? '2px' : '0px', 
+              minHeight: '22px',
+              cursor: onDragStart ? 'grab' : 'default',
+              transition: 'opacity 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              if (onDragStart && e.currentTarget instanceof HTMLElement) {
+                e.currentTarget.style.opacity = '0.9'
+                e.currentTarget.style.cursor = 'grab'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (onDragStart && e.currentTarget instanceof HTMLElement) {
+                e.currentTarget.style.opacity = '1'
+              }
+            }}
+          >
             {/* Numer zadania */}
             <div style={{ minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#d22f27', color: '#ffffff', borderRadius: '2px', fontSize: '10px', fontWeight: '600', flexShrink: 0 }}>
               {taskNumber}
@@ -242,11 +344,11 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
                   type="text"
                   value={inlineEditingText}
                   onChange={(e) => setInlineEditingText(e.target.value)}
-                  onBlur={() => handleInlineSave(index)}
+                  onBlur={() => handleInlineSave(task)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
-                      handleInlineSave(index)
+                      handleInlineSave(task)
                     } else if (e.key === 'Escape') {
                       handleInlineCancel()
                     }
@@ -264,11 +366,11 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
                   autoFocus
                 />
                 <button
-                  onClick={() => handleInlineSave(index)}
+                  onClick={() => handleInlineSave(task)}
                   style={{ padding: '2px', color: '#10B981', background: 'transparent', border: 'none', cursor: 'pointer' }}
                   title="Zapisz"
                 >
-                    <Check size={12} color="#10B981" />
+                  <Check size={12} color="#10B981" />
                 </button>
                 <button
                   onClick={handleInlineCancel}
@@ -355,199 +457,187 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
                   </div>
                 </div>
                 <div style={{ position: 'relative' }} data-assigner-dropdown>
-                  {editingAssignedBy && !showAssignerDropdown ? (
+                  {editingAssignedBy.length > 0 && (
                     <div
                       style={{
                         width: '100%',
-                        padding: '6px 10px',
+                        padding: '4px 6px',
                         border: '1px solid #d22f27',
                         borderRadius: '3px',
                         fontSize: '13px',
                         background: '#1a1a1a',
                         color: '#ffffff',
                         display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
+                        flexWrap: 'wrap',
+                        gap: '4px',
+                        marginBottom: '4px',
                         minHeight: '32px'
                       }}
                     >
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowAssignerDropdown(editingIndex)
-                          setEditingAssignerSearchQuery({ ...editingAssignerSearchQuery, [editingIndex]: '' })
-                        }}
-                        style={{
-                          flex: 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {getAssignerByName(editingAssignedBy)?.avatar ? (
-                          <img
-                            src={getAssignerByName(editingAssignedBy)!.avatar}
-                            alt={editingAssignedBy}
-                            style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
-                          />
-                        ) : (
-                          <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '600' }}>
-                            {editingAssignedBy.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <span>{editingAssignedBy}</span>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setEditingAssignedBy('')
-                          setShowAssignerDropdown(null)
-                          setEditingAssignerSearchQuery({ ...editingAssignerSearchQuery, [editingIndex]: '' })
-                        }}
-                        style={{
-                          padding: '2px',
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#888',
-                          transition: 'color 0.2s ease',
-                          flexShrink: 0
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = '#EF4444'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = '#888'
-                        }}
-                        title="Usuń przypisanie"
-                      >
-                        <X size={14} color="currentColor" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <input
-                        type="text"
-                        value={editingAssignerSearchQuery[editingIndex] || ''}
-                        onChange={(e) => {
-                          const query = e.target.value
-                          setEditingAssignerSearchQuery({ ...editingAssignerSearchQuery, [editingIndex]: query })
-                          if (query.length >= 2) {
-                            setShowAssignerDropdown(editingIndex)
-                          } else {
-                            setShowAssignerDropdown(null)
-                          }
-                        }}
-                        placeholder="Wpisz minimum 2 litery aby wyszukać..."
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if ((editingAssignerSearchQuery[editingIndex] || '').length >= 2) {
-                            setShowAssignerDropdown(editingIndex)
-                          }
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '6px 10px',
-                          border: '1px solid #d22f27',
-                          borderRadius: '3px',
-                          fontSize: '13px',
-                          background: '#1a1a1a',
-                          color: '#ffffff',
-                          outline: 'none'
-                        }}
-                        autoFocus
-                      />
-                      {showAssignerDropdown === editingIndex && (editingAssignerSearchQuery[editingIndex] || '').length >= 2 && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            right: 0,
-                            background: '#1a1a1a',
-                            border: '1px solid #2a2a2a',
-                            borderRadius: '3px',
-                            marginTop: '4px',
-                            maxHeight: '200px',
-                            overflowY: 'auto',
-                            zIndex: 1000,
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
-                          }}
-                        >
+                      {editingAssignedBy.map((name, idx) => {
+                        const assigner = getAssignerByName(name)
+                        return (
                           <div
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setEditingAssignedBy('')
-                              setShowAssignerDropdown(null)
-                              setEditingAssignerSearchQuery({ ...editingAssignerSearchQuery, [editingIndex]: '' })
-                            }}
+                            key={idx}
                             style={{
-                              padding: '8px 12px',
-                              cursor: 'pointer',
-                              color: '#888',
-                              fontSize: '12px',
-                              borderBottom: '1px solid #2a2a2a'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#2a2a2a'
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'transparent'
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 6px',
+                              background: '#2a2a2a',
+                              borderRadius: '12px',
+                              fontSize: '11px'
                             }}
                           >
-                            -- Brak --
-                          </div>
-                          {getFilteredAssigners(editingAssignerSearchQuery[editingIndex] || '').length === 0 ? (
-                            <div style={{ padding: '8px 12px', color: '#888', fontSize: '12px' }}>
-                              Brak wyników
-                            </div>
-                          ) : (
-                            getFilteredAssigners(editingAssignerSearchQuery[editingIndex] || '').map((assigner) => (
-                              <div
-                                key={assigner.id}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setEditingAssignedBy(assigner.name)
-                                  setShowAssignerDropdown(null)
-                                  setEditingAssignerSearchQuery({ ...editingAssignerSearchQuery, [editingIndex]: '' })
+                            {assigner?.avatar && !failedAvatars.has(assigner.avatar) ? (
+                              <img
+                                src={assigner.avatar}
+                                alt={name}
+                                style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
+                                onError={() => {
+                                  if (assigner?.avatar) {
+                                    setFailedAvatars(prev => new Set(prev).add(assigner.avatar))
+                                  }
                                 }}
-                                style={{
-                                  padding: '8px 12px',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  borderBottom: '1px solid #2a2a2a'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = '#2a2a2a'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = 'transparent'
-                                }}
-                              >
-                                {assigner.avatar ? (
-                                  <img
-                                    src={assigner.avatar}
-                                    alt={assigner.name}
-                                    style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
-                                  />
-                                ) : (
-                                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600', color: 'white' }}>
-                                    {assigner.name.charAt(0).toUpperCase()}
-                                  </div>
-                                )}
-                                <span style={{ fontSize: '13px', color: '#ffffff' }}>{assigner.name}</span>
+                              />
+                            ) : (
+                              <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '600' }}>
+                                {name.charAt(0).toUpperCase()}
                               </div>
-                            ))
-                          )}
+                            )}
+                            <span>{name}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingAssignedBy(editingAssignedBy.filter((_, i) => i !== idx))
+                              }}
+                              style={{
+                                padding: '0',
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                color: '#888',
+                                marginLeft: '2px'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = '#EF4444'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = '#888'
+                              }}
+                              title="Usuń"
+                            >
+                              <X size={12} color="currentColor" />
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    value={editingAssignerSearchQuery[editingIndex] || ''}
+                    onChange={(e) => {
+                      const query = e.target.value
+                      setEditingAssignerSearchQuery({ ...editingAssignerSearchQuery, [editingIndex]: query })
+                      if (query.length >= 2) {
+                        setShowAssignerDropdown(editingIndex)
+                      } else {
+                        setShowAssignerDropdown(null)
+                      }
+                    }}
+                    placeholder="Wpisz minimum 2 litery aby dodać osobę..."
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if ((editingAssignerSearchQuery[editingIndex] || '').length >= 2) {
+                        setShowAssignerDropdown(editingIndex)
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '6px 10px',
+                      border: '1px solid #d22f27',
+                      borderRadius: '3px',
+                      fontSize: '13px',
+                      background: '#1a1a1a',
+                      color: '#ffffff',
+                      outline: 'none'
+                    }}
+                    autoFocus
+                  />
+                  {showAssignerDropdown === editingIndex && (editingAssignerSearchQuery[editingIndex] || '').length >= 2 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        background: '#1a1a1a',
+                        border: '1px solid #2a2a2a',
+                        borderRadius: '3px',
+                        marginTop: '4px',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        zIndex: 1000,
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                      }}
+                    >
+                      {getFilteredAssigners(editingAssignerSearchQuery[editingIndex] || '').length === 0 ? (
+                        <div style={{ padding: '8px 12px', color: '#888', fontSize: '12px' }}>
+                          Brak wyników
                         </div>
+                      ) : (
+                        getFilteredAssigners(editingAssignerSearchQuery[editingIndex] || '')
+                          .filter(assigner => !editingAssignedBy.includes(assigner.name))
+                          .map((assigner) => (
+                            <div
+                              key={assigner.id}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (!editingAssignedBy.includes(assigner.name)) {
+                                  setEditingAssignedBy([...editingAssignedBy, assigner.name])
+                                }
+                                setShowAssignerDropdown(null)
+                                setEditingAssignerSearchQuery({ ...editingAssignerSearchQuery, [editingIndex]: '' })
+                              }}
+                              style={{
+                                padding: '8px 12px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                borderBottom: '1px solid #2a2a2a'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#2a2a2a'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'transparent'
+                              }}
+                            >
+                              {assigner.avatar && !failedAvatars.has(assigner.avatar) ? (
+                                <img
+                                  src={assigner.avatar}
+                                  alt={assigner.name}
+                                  style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                                  onError={() => {
+                                    if (assigner.avatar) {
+                                      setFailedAvatars(prev => new Set(prev).add(assigner.avatar))
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600', color: 'white' }}>
+                                  {assigner.name.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <span style={{ fontSize: '13px', color: '#ffffff' }}>{assigner.name}</span>
+                            </div>
+                          ))
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
                 <select
@@ -572,7 +662,7 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
                 </select>
                 <div style={{ display: 'flex', gap: '4px' }}>
                   <button
-                    onClick={() => handleSave(index)}
+                    onClick={() => handleSave(task)}
                     style={{
                       flex: 1,
                       display: 'flex',
@@ -603,7 +693,7 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
                     onClick={() => {
                       setEditingIndex(null)
                       setEditingTask('')
-                      setEditingAssignedBy('')
+                      setEditingAssignedBy([])
                       setEditingStartTime('')
                       setEditingEndTime('')
                       setEditingStatus('do zrobienia')
@@ -640,7 +730,7 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
               <>
                 <div 
                   style={{ flex: 1, cursor: 'text' }}
-                  onClick={() => handleInlineEdit(index)}
+                  onClick={() => handleInlineEdit(task)}
                   title="Kliknij aby edytować"
                 >
                   <div style={{ fontSize: '13px', color: '#ffffff', wordBreak: 'break-word', lineHeight: '1.3', marginBottom: '2px' }}>
@@ -655,7 +745,7 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      handleEdit(index)
+                      handleEdit(task)
                     }}
                     style={{ padding: '2px', color: '#d22f27', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                     title="Edytuj szczegóły"
@@ -672,7 +762,7 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      handleDelete(index)
+                      handleDelete(task)
                     }}
                     style={{ padding: '2px', color: '#EF4444', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                     title="Usuń"
@@ -812,199 +902,187 @@ export default function TaskList({ date, tasks, onUpdate }: TaskListProps) {
                 </div>
               </div>
               <div style={{ position: 'relative' }} data-assigner-dropdown>
-                {newAssignedBy && !showNewAssignerDropdown ? (
+                {newAssignedBy.length > 0 && (
                   <div
                     style={{
                       width: '100%',
-                      padding: '6px 10px',
+                      padding: '4px 6px',
                       border: '1px solid #2a2a2a',
                       borderRadius: '3px',
                       fontSize: '13px',
                       background: '#1a1a1a',
                       color: '#ffffff',
                       display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
+                      flexWrap: 'wrap',
+                      gap: '4px',
+                      marginBottom: '4px',
                       minHeight: '32px'
                     }}
                   >
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowNewAssignerDropdown(true)
-                        setAssignerSearchQuery('')
-                      }}
-                      style={{
-                        flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {getAssignerByName(newAssignedBy)?.avatar ? (
-                        <img
-                          src={getAssignerByName(newAssignedBy)!.avatar}
-                          alt={newAssignedBy}
-                          style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '600', color: 'white' }}>
-                          {newAssignedBy.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span>{newAssignedBy}</span>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setNewAssignedBy('')
-                        setShowNewAssignerDropdown(false)
-                        setAssignerSearchQuery('')
-                      }}
-                      style={{
-                        padding: '2px',
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#888',
-                        transition: 'color 0.2s ease',
-                        flexShrink: 0
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = '#EF4444'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = '#888'
-                      }}
-                      title="Usuń przypisanie"
-                    >
-                      <X size={14} color="currentColor" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <input
-                      type="text"
-                      value={assignerSearchQuery}
-                      onChange={(e) => {
-                        const query = e.target.value
-                        setAssignerSearchQuery(query)
-                        if (query.length >= 2) {
-                          setShowNewAssignerDropdown(true)
-                        } else {
-                          setShowNewAssignerDropdown(false)
-                        }
-                      }}
-                      placeholder="Wpisz minimum 2 litery aby wyszukać..."
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (assignerSearchQuery.length >= 2) {
-                          setShowNewAssignerDropdown(true)
-                        }
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '6px 10px',
-                        border: '1px solid #2a2a2a',
-                        borderRadius: '3px',
-                        fontSize: '13px',
-                        background: '#1a1a1a',
-                        color: '#ffffff',
-                        outline: 'none'
-                      }}
-                      autoFocus
-                    />
-                    {showNewAssignerDropdown && assignerSearchQuery.length >= 2 && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          background: '#1a1a1a',
-                          border: '1px solid #2a2a2a',
-                          borderRadius: '3px',
-                          marginTop: '4px',
-                          maxHeight: '200px',
-                          overflowY: 'auto',
-                          zIndex: 1000,
-                          boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
-                        }}
-                      >
+                    {newAssignedBy.map((name, idx) => {
+                      const assigner = getAssignerByName(name)
+                      return (
                         <div
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setNewAssignedBy('')
-                            setShowNewAssignerDropdown(false)
-                            setAssignerSearchQuery('')
-                          }}
+                          key={idx}
                           style={{
-                            padding: '8px 12px',
-                            cursor: 'pointer',
-                            color: '#888',
-                            fontSize: '12px',
-                            borderBottom: '1px solid #2a2a2a'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#2a2a2a'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent'
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '2px 6px',
+                            background: '#2a2a2a',
+                            borderRadius: '12px',
+                            fontSize: '11px'
                           }}
                         >
-                          -- Brak --
-                        </div>
-                        {getFilteredAssigners(assignerSearchQuery).length === 0 ? (
-                          <div style={{ padding: '8px 12px', color: '#888', fontSize: '12px' }}>
-                            Brak wyników
-                          </div>
-                        ) : (
-                          getFilteredAssigners(assignerSearchQuery).map((assigner) => (
-                            <div
-                              key={assigner.id}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setNewAssignedBy(assigner.name)
-                                setShowNewAssignerDropdown(false)
-                                setAssignerSearchQuery('')
+                          {assigner?.avatar && !failedAvatars.has(assigner.avatar) ? (
+                            <img
+                              src={assigner.avatar}
+                              alt={name}
+                              style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
+                              onError={() => {
+                                if (assigner?.avatar) {
+                                  setFailedAvatars(prev => new Set(prev).add(assigner.avatar))
+                                }
                               }}
-                              style={{
-                                padding: '8px 12px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                borderBottom: '1px solid #2a2a2a'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#2a2a2a'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'transparent'
-                              }}
-                            >
-                              {assigner.avatar ? (
-                                <img
-                                  src={assigner.avatar}
-                                  alt={assigner.name}
-                                  style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
-                                />
-                              ) : (
-                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600', color: 'white' }}>
-                                  {assigner.name.charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <span style={{ fontSize: '13px', color: '#ffffff' }}>{assigner.name}</span>
+                            />
+                          ) : (
+                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '600' }}>
+                              {name.charAt(0).toUpperCase()}
                             </div>
-                          ))
-                        )}
+                          )}
+                          <span>{name}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setNewAssignedBy(newAssignedBy.filter((_, i) => i !== idx))
+                            }}
+                            style={{
+                              padding: '0',
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              color: '#888',
+                              marginLeft: '2px'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = '#EF4444'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = '#888'
+                            }}
+                            title="Usuń"
+                          >
+                            <X size={12} color="currentColor" />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={assignerSearchQuery}
+                  onChange={(e) => {
+                    const query = e.target.value
+                    setAssignerSearchQuery(query)
+                    if (query.length >= 2) {
+                      setShowNewAssignerDropdown(true)
+                    } else {
+                      setShowNewAssignerDropdown(false)
+                    }
+                  }}
+                  placeholder="Wpisz minimum 2 litery aby dodać osobę..."
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (assignerSearchQuery.length >= 2) {
+                      setShowNewAssignerDropdown(true)
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    border: '1px solid #2a2a2a',
+                    borderRadius: '3px',
+                    fontSize: '13px',
+                    background: '#1a1a1a',
+                    color: '#ffffff',
+                    outline: 'none'
+                  }}
+                  autoFocus
+                />
+                {showNewAssignerDropdown && assignerSearchQuery.length >= 2 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      background: '#1a1a1a',
+                      border: '1px solid #2a2a2a',
+                      borderRadius: '3px',
+                      marginTop: '4px',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000,
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                    }}
+                  >
+                    {getFilteredAssigners(assignerSearchQuery).length === 0 ? (
+                      <div style={{ padding: '8px 12px', color: '#888', fontSize: '12px' }}>
+                        Brak wyników
                       </div>
+                    ) : (
+                      getFilteredAssigners(assignerSearchQuery)
+                        .filter(assigner => !newAssignedBy.includes(assigner.name))
+                        .map((assigner) => (
+                          <div
+                            key={assigner.id}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (!newAssignedBy.includes(assigner.name)) {
+                                setNewAssignedBy([...newAssignedBy, assigner.name])
+                              }
+                              setShowNewAssignerDropdown(false)
+                              setAssignerSearchQuery('')
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              borderBottom: '1px solid #2a2a2a'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#2a2a2a'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'transparent'
+                            }}
+                          >
+                            {assigner.avatar && !failedAvatars.has(assigner.avatar) ? (
+                              <img
+                                src={assigner.avatar}
+                                alt={assigner.name}
+                                style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                                onError={() => {
+                                  if (assigner.avatar) {
+                                    setFailedAvatars(prev => new Set(prev).add(assigner.avatar))
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600', color: 'white' }}>
+                                {assigner.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span style={{ fontSize: '13px', color: '#ffffff' }}>{assigner.name}</span>
+                          </div>
+                        ))
                     )}
-                  </>
+                  </div>
                 )}
               </div>
               <select

@@ -31,3 +31,6 @@ SET status = CASE
 END
 WHERE status IS NULL OR status = '';
 
+
+
+

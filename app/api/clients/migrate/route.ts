@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
-import { query } from '@/lib/db'
+import { query, getConfigFromEnvOrFile } from '@/lib/db'
+import { getStorageMode } from '@/lib/dbConfig'
 import fs from 'fs'
 import path from 'path'
 
@@ -17,7 +18,15 @@ function getUserId(request: NextRequest): number | null {
 }
 
 function isMySQLAvailable(): boolean {
-  return !!(process.env.DB_HOST && process.env.DB_NAME)
+  // Sprawdź tryb przechowywania danych
+  const storageMode = getStorageMode()
+  if (storageMode === 'json') {
+    return false
+  }
+  
+  // Sprawdź konfigurację bazy danych
+  const dbConfig = getConfigFromEnvOrFile()
+  return dbConfig !== null
 }
 
 // POST - Migruj istniejące dane do klienta "Best Market"
@@ -144,4 +153,7 @@ export async function POST(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
+
+
 

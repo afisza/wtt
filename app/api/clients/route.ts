@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
-import { query } from '@/lib/db'
+import { query, getConfigFromEnvOrFile } from '@/lib/db'
+import { getStorageMode } from '@/lib/dbConfig'
 import fs from 'fs'
 import path from 'path'
 
@@ -17,12 +18,31 @@ function getUserId(request: NextRequest): number | null {
 }
 
 function isMySQLAvailable(): boolean {
-  return !!(process.env.DB_HOST && process.env.DB_NAME)
+  // Sprawdź tryb przechowywania danych
+  const storageMode = getStorageMode()
+  if (storageMode === 'json') {
+    return false
+  }
+  
+  // Sprawdź konfigurację bazy danych
+  const dbConfig = getConfigFromEnvOrFile()
+  return dbConfig !== null
 }
 
 // GET - pobierz wszystkich klientów użytkownika
 export async function GET(request: NextRequest) {
+  // Debug: sprawdź czy cookies są przekazywane
+  const allCookies = request.cookies.getAll()
+  const authToken = request.cookies.get('auth_token')
+  console.log('GET /api/clients - Cookies:', {
+    allCookies: allCookies.map(c => ({ name: c.name, hasValue: !!c.value })),
+    authToken: authToken ? 'present' : 'missing',
+    authTokenValue: authToken?.value ? 'has value' : 'no value'
+  })
+  
   const userId = getUserId(request)
+  console.log('GET /api/clients - userId:', userId)
+  
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -44,7 +64,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const clients = await query(
-      `SELECT id, name, logo, created_at, updated_at FROM clients WHERE user_id = ? ORDER BY created_at ASC`,
+      `SELECT id, name, logo, website, created_at, updated_at FROM clients WHERE user_id = ? ORDER BY created_at ASC`,
       [userId]
     ) as any[]
     
@@ -64,7 +84,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { name, logo } = body
+    const { name, logo, website } = body
 
     if (!name || name.trim() === '') {
       return NextResponse.json({ error: 'Name is required', details: 'Nazwa klienta jest wymagana' }, { status: 400 })
@@ -87,6 +107,7 @@ export async function POST(request: NextRequest) {
         id: Date.now(),
         name: name.trim(),
         logo: logo || '',
+        website: website || '',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -101,14 +122,15 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await query(
-      `INSERT INTO clients (user_id, name, logo) VALUES (?, ?, ?)`,
-      [userId, name.trim(), logo || '']
+      `INSERT INTO clients (user_id, name, logo, website) VALUES (?, ?, ?, ?)`,
+      [userId, name.trim(), logo || '', website || '']
     ) as any
 
     const newClient = {
       id: result.insertId,
       name: name.trim(),
       logo: logo || '',
+      website: website || '',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
@@ -132,7 +154,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { id, name, logo } = body
+    const { id, name, logo, website } = body
 
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
@@ -181,6 +203,7 @@ export async function PUT(request: NextRequest) {
         ...data[userId][clientIndex],
         name: name.trim(),
         logo: logo || '',
+        website: website || '',
         updated_at: new Date().toISOString()
       }
 
@@ -211,14 +234,15 @@ export async function PUT(request: NextRequest) {
     }
 
     await query(
-      `UPDATE clients SET name = ?, logo = ? WHERE id = ? AND user_id = ?`,
-      [name.trim(), logo || '', id, userId]
+      `UPDATE clients SET name = ?, logo = ?, website = ? WHERE id = ? AND user_id = ?`,
+      [name.trim(), logo || '', website || '', id, userId]
     )
 
     const updatedClient = {
       id: parseInt(id),
       name: name.trim(),
       logo: logo || '',
+      website: website || '',
       updated_at: new Date().toISOString()
     }
 
@@ -325,4 +349,7 @@ export async function DELETE(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
+
+
 

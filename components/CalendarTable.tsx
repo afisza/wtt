@@ -8,7 +8,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useToast } from '@/contexts/ToastContext'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { FileText } from 'lucide-react'
+import { FileText, Loader2 } from 'lucide-react'
 import { robotoFontBase64, robotoFontName } from '@/lib/roboto-font'
 
 interface DayData {
@@ -28,11 +28,13 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
   const [daysData, setDaysData] = useState<Record<string, DayData>>({})
   const [loading, setLoading] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
+  const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set())
   const { showToast } = useToast()
   const [hourlyRate, setHourlyRate] = useState<string>('')
   const [assigners, setAssigners] = useState<any[]>([])
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const [draggedTask, setDraggedTask] = useState<{ task: Task; sourceDate: string; taskIndex: number } | null>(null)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -46,7 +48,9 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
   useEffect(() => {
     const loadAssigners = async () => {
       try {
-        const response = await fetch('/api/assigners')
+        const response = await fetch('/api/assigners', {
+          credentials: 'include',
+        })
         if (response.ok) {
           const data = await response.json()
           setAssigners(data)
@@ -114,9 +118,12 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
   const loadData = async () => {
     if (clientId === null) return
     
+    setLoading(true)
     try {
       const monthKey = format(currentMonth, 'yyyy-MM')
-      const response = await fetch(`/api/work-time?month=${monthKey}&clientId=${clientId}`)
+      const response = await fetch(`/api/work-time?month=${monthKey}&clientId=${clientId}`, {
+        credentials: 'include',
+      })
       if (response.ok) {
         const data = await response.json()
         const monthData = data[monthKey] || {}
@@ -138,11 +145,20 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
           if (dayData.tasks && Array.isArray(dayData.tasks)) {
             normalizedTasks = dayData.tasks.map((task: any) => {
               if (typeof task === 'string') {
-                return { text: task, assignedBy: '', startTime: '08:00', endTime: '16:00', status: 'do zrobienia' as const }
+                return { text: task, assignedBy: [], startTime: '08:00', endTime: '16:00', status: 'do zrobienia' as const }
+              }
+              // Normalizuj assignedBy - może być string (stary format) lub string[] (nowy format)
+              let assignedBy: string[] = []
+              if (task.assignedBy) {
+                if (Array.isArray(task.assignedBy)) {
+                  assignedBy = task.assignedBy
+                } else if (typeof task.assignedBy === 'string' && task.assignedBy.trim()) {
+                  assignedBy = [task.assignedBy]
+                }
               }
               return {
                 text: task.text || '',
-                assignedBy: task.assignedBy || '',
+                assignedBy: assignedBy,
                 startTime: task.startTime || '08:00',
                 endTime: task.endTime || '16:00',
                 status: task.status || (task.completed ? 'wykonano' : 'do zrobienia') as const
@@ -179,7 +195,9 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
       const monthKey = format(currentMonth, 'yyyy-MM')
       
       // Pobierz istniejące dane dla tego klienta
-      const existingResponse = await fetch(`/api/work-time?clientId=${clientId}`)
+      const existingResponse = await fetch(`/api/work-time?clientId=${clientId}`, {
+        credentials: 'include',
+      })
       let existingData = {}
       if (existingResponse.ok) {
         existingData = await existingResponse.json()
@@ -196,6 +214,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ ...updatedMonthData, clientId }),
       })
       if (response.ok) {
@@ -267,7 +286,8 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
   }
 
   const updateDayData = (date: string, updates: Partial<DayData>) => {
-    const dateKey = format(new Date(date), 'yyyy-MM-dd')
+    // Jeśli date jest już w formacie yyyy-MM-dd, użyj go bezpośrednio (unika problemów ze strefami czasowymi)
+    const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : format(new Date(date), 'yyyy-MM-dd')
     const currentDayData = daysData[dateKey] || {
       date: dateKey,
       tasks: [],
@@ -288,6 +308,124 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
     }
 
     saveData(updatedDaysData)
+  }
+
+  // Funkcja do przenoszenia zadania między dniami (drag & drop)
+  const moveTask = (sourceDate: string, targetDate: string, taskIndex: number) => {
+    // Jeśli daty są już w formacie yyyy-MM-dd, użyj ich bezpośrednio (unika problemów ze strefami czasowymi)
+    const sourceDateKey = /^\d{4}-\d{2}-\d{2}$/.test(sourceDate) ? sourceDate : format(new Date(sourceDate), 'yyyy-MM-dd')
+    const targetDateKey = /^\d{4}-\d{2}-\d{2}$/.test(targetDate) ? targetDate : format(new Date(targetDate), 'yyyy-MM-dd')
+
+    if (sourceDateKey === targetDateKey) {
+      return // Nie przenoś jeśli to ten sam dzień
+    }
+
+    const sourceDayData = daysData[sourceDateKey]
+    if (!sourceDayData || !sourceDayData.tasks[taskIndex]) {
+      return
+    }
+
+    const taskToMove = sourceDayData.tasks[taskIndex]
+
+    // Usuń zadanie z źródłowego dnia
+    const updatedSourceTasks = sourceDayData.tasks.filter((_, idx) => idx !== taskIndex)
+    const updatedSourceDayData: DayData = {
+      ...sourceDayData,
+      tasks: updatedSourceTasks,
+      totalHours: calculateTotalHours(updatedSourceTasks),
+    }
+
+    // Dodaj zadanie do docelowego dnia
+    const targetDayData = daysData[targetDateKey] || {
+      date: targetDateKey,
+      tasks: [],
+      totalHours: '00:00',
+    }
+    const updatedTargetTasks = [...targetDayData.tasks, taskToMove]
+    const updatedTargetDayData: DayData = {
+      ...targetDayData,
+      tasks: updatedTargetTasks,
+      totalHours: calculateTotalHours(updatedTargetTasks),
+    }
+
+    // Zaktualizuj stan
+    const updatedDaysData = {
+      ...daysData,
+      [sourceDateKey]: updatedSourceDayData,
+      [targetDateKey]: updatedTargetDayData,
+    }
+
+    setDaysData(updatedDaysData)
+    saveData(updatedDaysData)
+    showToast(`Zadanie przeniesione z ${sourceDateKey} do ${targetDateKey}`, 'success')
+  }
+
+  // Handlery dla drag & drop
+  const handleDragStart = (e: React.DragEvent, date: string, taskIndex: number) => {
+    // Jeśli date jest już w formacie yyyy-MM-dd, użyj go bezpośrednio (unika problemów ze strefami czasowymi)
+    const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : format(new Date(date), 'yyyy-MM-dd')
+    const dayData = daysData[dateKey]
+    if (dayData && dayData.tasks[taskIndex]) {
+      setDraggedTask({
+        task: dayData.tasks[taskIndex],
+        sourceDate: dateKey,
+        taskIndex,
+      })
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/plain', '') // Wymagane dla niektórych przeglądarek
+      // Dodaj wizualną wskazówkę podczas przeciągania
+      if (e.currentTarget instanceof HTMLElement) {
+        e.currentTarget.style.opacity = '0.5'
+      }
+    }
+  }
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    // Przywróć pełną widoczność
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1'
+    }
+    setDraggedTask(null)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    // Dodaj wizualną wskazówkę podczas przeciągania nad komórką
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.backgroundColor = draggedTask ? 'rgba(210, 47, 39, 0.1)' : ''
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Przywróć normalne tło gdy opuszczamy komórkę
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.backgroundColor = ''
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent, targetDate: string) => {
+    e.preventDefault()
+    
+    // Przywróć normalne tło
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.backgroundColor = ''
+    }
+    
+    if (!draggedTask) {
+      return
+    }
+
+    // Jeśli targetDate jest już w formacie yyyy-MM-dd, użyj go bezpośrednio (unika problemów ze strefami czasowymi)
+    const targetDateKey = /^\d{4}-\d{2}-\d{2}$/.test(targetDate) ? targetDate : format(new Date(targetDate), 'yyyy-MM-dd')
+    
+    if (draggedTask.sourceDate === targetDateKey) {
+      setDraggedTask(null)
+      return // Nie przenoś jeśli to ten sam dzień
+    }
+
+    moveTask(draggedTask.sourceDate, targetDateKey, draggedTask.taskIndex)
+    setDraggedTask(null)
   }
 
   const getDayName = (date: Date): string => {
@@ -481,8 +619,8 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
       // Format daty z pełną nazwą dnia pod spodem - zachowujemy polskie znaki
       const dateWithDay = `${dateStr}\n${dayName}`
       
-      // Zbierz wszystkich unikalnych osób zlecających dla tego dnia
-      const dayAssigners = [...new Set(dayData.tasks.map(t => t.assignedBy).filter(Boolean))]
+      // Zbierz wszystkich unikalnych osób zlecających dla tego dnia (flatten arrays)
+      const dayAssigners = [...new Set(dayData.tasks.flatMap(t => Array.isArray(t.assignedBy) ? t.assignedBy : (t.assignedBy ? [t.assignedBy] : [])).filter(Boolean))]
       const assignersText = dayAssigners.length > 0 
         ? dayAssigners.join('\n')
         : '-'
@@ -651,7 +789,33 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
   }
 
   if (loading) {
-    return <div style={{ color: '#888', fontSize: '12px' }}>Ładowanie...</div>
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '60px 20px',
+        minHeight: '400px',
+        background: isDark ? '#141414' : '#ffffff',
+      }}>
+        <Loader2 
+          size={48} 
+          style={{
+            color: '#d22f27',
+            animation: 'spin-loader 1s linear infinite',
+          }}
+        />
+        <div style={{
+          marginTop: '20px',
+          color: isDark ? '#888' : '#666',
+          fontSize: '14px',
+          fontWeight: '500',
+        }}>
+          Ładowanie zadań z bazy danych...
+        </div>
+      </div>
+    )
   }
 
   const days = getDaysInMonth()
@@ -767,11 +931,22 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
               }
 
               // Zbierz wszystkich, którzy zlecili zadania dla tego dnia
-              const dayAssigners = [...new Set(dayData.tasks.map(t => t.assignedBy).filter(Boolean))]
+              const dayAssigners = [...new Set(dayData.tasks.flatMap(t => Array.isArray(t.assignedBy) ? t.assignedBy : (t.assignedBy ? [t.assignedBy] : [])).filter(Boolean))]
 
               return (
-                <tr key={dateKey} style={{ background: days.indexOf(day) % 2 === 0 ? '#141414' : '#1a1a1a' }}>
-                  <td style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', verticalAlign: 'top' }}>
+                <tr 
+                  key={dateKey} 
+                  style={{ background: days.indexOf(day) % 2 === 0 ? '#141414' : '#1a1a1a' }}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, dateKey)}
+                >
+                  <td 
+                    style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', verticalAlign: 'top' }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, dateKey)}
+                  >
                     <div style={{ fontWeight: '500', color: '#ffffff', marginBottom: '2px', fontSize: '13px', lineHeight: '1.2' }}>
                       {format(day, 'dd.MM.yyyy')}
                     </div>
@@ -779,10 +954,20 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                       {getDayName(day)}
                     </div>
                   </td>
-                  <td style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', textAlign: 'center', fontWeight: '600', color: '#d22f27', fontSize: '13px', verticalAlign: 'top' }}>
+                  <td 
+                    style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', textAlign: 'center', fontWeight: '600', color: '#d22f27', fontSize: '13px', verticalAlign: 'top' }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, dateKey)}
+                  >
                     {dayData.totalHours}
                   </td>
-                  <td style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', verticalAlign: 'top' }}>
+                  <td 
+                    style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', verticalAlign: 'top' }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, dateKey)}
+                  >
                     {dayAssigners.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         {dayAssigners.map((assignerName, idx) => {
@@ -799,7 +984,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                                 lineHeight: '1.3'
                               }}
                             >
-                              {assigner?.avatar ? (
+                              {assigner?.avatar && !failedAvatars.has(assigner.avatar) ? (
                                 <img
                                   src={assigner.avatar}
                                   alt={assigner.name}
@@ -809,6 +994,11 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                                     borderRadius: '50%',
                                     objectFit: 'cover',
                                     flexShrink: 0
+                                  }}
+                                  onError={() => {
+                                    if (assigner?.avatar) {
+                                      setFailedAvatars(prev => new Set(prev).add(assigner.avatar))
+                                    }
                                   }}
                                 />
                               ) : (
@@ -839,14 +1029,31 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                       <div style={{ fontSize: '13px', color: '#888' }}>-</div>
                     )}
                   </td>
-                  <td style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', verticalAlign: 'top' }}>
+                  <td 
+                    style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', verticalAlign: 'top' }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, dateKey)}
+                  >
                     <TaskList
                       date={dateKey}
                       tasks={dayData.tasks}
                       onUpdate={(tasks) => updateDayData(dateKey, { tasks })}
+                      onDragStart={(e, taskIndex) => handleDragStart(e, dateKey, taskIndex)}
+                      onDragEnd={handleDragEnd}
                     />
                   </td>
-                  <td style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', verticalAlign: 'top' }}>
+                  <td 
+                    style={{ 
+                      padding: '4px 6px', 
+                      borderBottom: '1px solid #2a2a2a', 
+                      verticalAlign: 'top',
+                      position: 'relative'
+                    }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, dateKey)}
+                  >
                     {dayData.tasks.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
                         {dayData.tasks.map((task, idx) => {
@@ -855,18 +1062,35 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                             'wykonano': '#10B981',
                             'w trakcie': '#3B82F6',
                             'do zrobienia': '#EAB308',
-                            'anulowane': '#6B7280'
+                            'anulowane': '#6B7280',
+                            'zaplanowano': '#8B5CF6'
                           }
                           return (
                             <div 
                               key={idx}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, dateKey, idx)}
+                              onDragEnd={handleDragEnd}
                               style={{
                                 marginBottom: idx < dayData.tasks.length - 1 ? '2px' : '0px',
                                 minHeight: '22px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '4px',
-                                padding: '0px'
+                                padding: '0px',
+                                cursor: 'grab',
+                                transition: 'opacity 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (e.currentTarget instanceof HTMLElement) {
+                                  e.currentTarget.style.cursor = 'grab'
+                                  e.currentTarget.style.opacity = '0.9'
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (e.currentTarget instanceof HTMLElement) {
+                                  e.currentTarget.style.opacity = '1'
+                                }
                               }}
                             >
                               {/* Numer zadania */}
@@ -907,6 +1131,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                                 <option value="w trakcie" style={{ background: '#3B82F6' }}>w trakcie</option>
                                 <option value="do zrobienia" style={{ background: '#EAB308' }}>do zrobienia</option>
                                 <option value="anulowane" style={{ background: '#6B7280' }}>anulowane</option>
+                                <option value="zaplanowano" style={{ background: '#8B5CF6' }}>zaplanowano</option>
                               </select>
                             </div>
                           )

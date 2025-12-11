@@ -41,6 +41,16 @@ export function getDbPool(): mysql.Pool | null {
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
+      timezone: 'Z', // Użyj UTC i konwertuj lokalnie, lub '+01:00' dla CET
+    })
+    
+    // Ustaw strefę czasową dla każdego połączenia na Europe/Warsaw
+    pool.on('connection', async (connection) => {
+      try {
+        await connection.execute(`SET time_zone = '+01:00'`) // CET (zimowy) / CEST (letni) - MySQL automatycznie obsługuje zmianę czasu
+      } catch (error) {
+        console.warn('Could not set MySQL timezone:', error)
+      }
     })
   }
   return pool
@@ -80,7 +90,11 @@ export async function testConnection(config: {
       password: config.password,
       database: config.database,
       connectTimeout: 10000, // 10 sekund timeout
+      timezone: 'Z', // UTC
     })
+    
+    // Ustaw strefę czasową na Europe/Warsaw (CET/CEST)
+    await connection.execute(`SET time_zone = '+01:00'`)
     
     await connection.ping()
     
@@ -146,7 +160,11 @@ export async function getDatabaseInfo(): Promise<{
       password: config.password,
       database: config.database,
       connectTimeout: 10000,
+      timezone: 'Z', // UTC
     })
+    
+    // Ustaw strefę czasową na Europe/Warsaw (CET/CEST)
+    await connection.execute(`SET time_zone = '+01:00'`)
     
     // Sprawdź połączenie
     await connection.ping()
@@ -169,11 +187,10 @@ export async function getDatabaseInfo(): Promise<{
       
       sizeMB = dbSizeResult[0]?.size_mb || 0
       
-      // Pobierz listę tabel
+      // Pobierz listę tabel z rozmiarami
       const [tablesResult] = await connection.execute(
         `SELECT 
           table_name AS name,
-          table_rows AS rows,
           ROUND((data_length + index_length) / 1024 / 1024, 2) AS size_mb
          FROM information_schema.tables 
          WHERE table_schema = ?
@@ -181,7 +198,39 @@ export async function getDatabaseInfo(): Promise<{
         [config.database]
       ) as any[]
       
-      tables = tablesResult
+      // Pobierz dokładną liczbę wierszy dla każdej tabeli (table_rows jest tylko szacunkiem dla InnoDB)
+      tables = await Promise.all(
+        tablesResult.map(async (table: any) => {
+          let rows = 0
+          try {
+            // Pobierz dokładną liczbę wierszy używając COUNT(*)
+            const [countResult] = await connection.execute(
+              `SELECT COUNT(*) as count FROM \`${table.name}\``
+            ) as any[]
+            rows = countResult[0]?.count || 0
+          } catch (countError: any) {
+            // Jeśli nie można pobrać COUNT, użyj table_rows jako fallback
+            console.warn(`Cannot get row count for table ${table.name}:`, countError.message)
+            try {
+              const [tableRowsResult] = await connection.execute(
+                `SELECT table_rows AS rows
+                 FROM information_schema.tables 
+                 WHERE table_schema = ? AND table_name = ?`,
+                [config.database, table.name]
+              ) as any[]
+              rows = tableRowsResult[0]?.rows || 0
+            } catch (fallbackError) {
+              rows = 0
+            }
+          }
+          
+          return {
+            name: table.name,
+            rows: rows,
+            size_mb: table.size_mb || 0,
+          }
+        })
+      )
     } catch (infoSchemaError: any) {
       // Jeśli nie ma dostępu do information_schema, użyj alternatywnej metody
       console.warn('Cannot access information_schema, using alternative method:', infoSchemaError.message)
@@ -190,32 +239,49 @@ export async function getDatabaseInfo(): Promise<{
       const [tablesResult] = await connection.execute(`SHOW TABLES`) as any[]
       
       const tableKey = `Tables_in_${config.database}`
-      tables = tablesResult.map((row: any) => ({
-        name: row[tableKey],
-        rows: 0, // Nie możemy pobrać liczby wierszy bez information_schema
-        size_mb: 0,
-      }))
+      const tableNames = tablesResult.map((row: any) => row[tableKey])
       
-      // Spróbuj pobrać rozmiar używając SHOW TABLE STATUS
-      try {
-        const [statusResult] = await connection.execute(`SHOW TABLE STATUS`) as any[]
-        let totalSize = 0
-        statusResult.forEach((table: any) => {
-          const dataLength = (table.Data_length || 0) / 1024 / 1024
-          const indexLength = (table.Index_length || 0) / 1024 / 1024
-          totalSize += dataLength + indexLength
+      // Pobierz dokładną liczbę wierszy i rozmiar dla każdej tabeli
+      tables = await Promise.all(
+        tableNames.map(async (tableName: string) => {
+          let rows = 0
+          let size_mb = 0
           
-          // Zaktualizuj informacje o tabeli
-          const tableInfo = tables.find(t => t.name === table.Name)
-          if (tableInfo) {
-            tableInfo.rows = table.Rows || 0
-            tableInfo.size_mb = dataLength + indexLength
+          // Pobierz dokładną liczbę wierszy używając COUNT(*)
+          try {
+            const [countResult] = await connection.execute(
+              `SELECT COUNT(*) as count FROM \`${tableName}\``
+            ) as any[]
+            rows = countResult[0]?.count || 0
+          } catch (countError: any) {
+            console.warn(`Cannot get row count for table ${tableName}:`, countError.message)
+            rows = 0
+          }
+          
+          // Spróbuj pobrać rozmiar używając SHOW TABLE STATUS
+          try {
+            const [statusResult] = await connection.execute(
+              `SHOW TABLE STATUS LIKE ?`,
+              [tableName]
+            ) as any[]
+            if (statusResult && statusResult.length > 0) {
+              const table = statusResult[0]
+              const dataLength = (table.Data_length || 0) / 1024 / 1024
+              const indexLength = (table.Index_length || 0) / 1024 / 1024
+              size_mb = dataLength + indexLength
+              sizeMB += size_mb
+            }
+          } catch (statusError: any) {
+            console.warn(`Cannot get table status for ${tableName}:`, statusError.message)
+          }
+          
+          return {
+            name: tableName,
+            rows: rows,
+            size_mb: size_mb,
           }
         })
-        sizeMB = totalSize
-      } catch (statusError) {
-        console.warn('Cannot get table status:', statusError)
-      }
+      )
     }
     
     const size = sizeMB < 1 

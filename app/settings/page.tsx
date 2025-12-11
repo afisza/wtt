@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import React from 'react'
 import Cookies from 'js-cookie'
 import { useTheme } from '@/contexts/ThemeContext'
-import { Plus, Edit2, Trash2, Upload, X, Check, User } from 'lucide-react'
+import { Plus, Edit2, Trash2, Upload, X, Check, User, Settings, Sun, Moon, CheckCircle2, XCircle, Info, AlertTriangle } from 'lucide-react'
 
 interface DatabaseConfig {
   host: string
@@ -53,6 +53,26 @@ const SettingsPage = (): JSX.Element | null => {
   const [infoLoading, setInfoLoading] = useState(false)
   const [initLoading, setInitLoading] = useState(false)
   const [initResult, setInitResult] = useState<{ success: boolean; message?: string; alreadyExists?: boolean } | null>(null)
+  const [migrateLoading, setMigrateLoading] = useState(false)
+  const [migrateResult, setMigrateResult] = useState<{ 
+    success: boolean
+    message?: string
+    migrated?: { days: number; tasks: number }
+    progress?: { total: number; current: number; percentage: number; stage: string; details?: any }
+    details?: {
+      clientsProcessed: number
+      monthsProcessed: number
+      daysWithTasks: number
+      daysSkipped: number
+      tasksAdded: number
+      tasksUpdated: number
+      tasksDeleted: number
+      errors: string[]
+      errorsCount: number
+    }
+    debug?: any
+  } | null>(null)
+  const [storageMode, setStorageMode] = useState<'mysql' | 'json'>('mysql')
   
   // Hourly rate state
   const [hourlyRate, setHourlyRate] = useState<string>('')
@@ -67,13 +87,33 @@ const SettingsPage = (): JSX.Element | null => {
 
   const loadConfig = useCallback(async () => {
     try {
-      const response = await fetch('/api/settings/db-config')
+      const response = await fetch('/api/settings/db-config', {
+        credentials: 'include',
+      })
       if (response.ok) {
         const data = await response.json()
+        console.log('Settings - Loaded config data:', data)
         if (data.config) {
-          setConfig(data.config)
-          setHasPassword(data.hasPassword)
+          setConfig({
+            host: data.config.host || '',
+            port: data.config.port || 3306,
+            user: data.config.user || '',
+            password: '', // Hasło nie jest zwracane z API ze względów bezpieczeństwa
+            database: data.config.database || '',
+          })
+          setHasPassword(data.hasPassword || false)
+          console.log('Settings - Config loaded:', {
+            host: data.config.host,
+            port: data.config.port,
+            user: data.config.user,
+            database: data.config.database,
+            hasPassword: data.hasPassword
+          })
+        } else {
+          console.log('Settings - No config found in response')
         }
+      } else {
+        console.error('Settings - Failed to load config:', response.status)
       }
     } catch (error) {
       console.error('Error loading config:', error)
@@ -81,22 +121,122 @@ const SettingsPage = (): JSX.Element | null => {
   }, [])
 
   useEffect(() => {
-    const token = Cookies.get('auth_token')
-    if (!token) {
-      router.push('/')
+    const checkAuth = async () => {
+      // Sprawdź czy token istnieje
+      const token = Cookies.get('auth_token')
+      if (!token) {
+        router.push('/')
+        return
+      }
+
+      // Weryfikuj token przez API
+      try {
+        const response = await fetch('/api/auth/verify', {
+          credentials: 'include',
+        })
+        
+        if (!response.ok) {
+          // Token nieprawidłowy - przekieruj do logowania
+          Cookies.remove('auth_token', { path: '/' })
+          router.push('/')
+          return
+        }
+
+        const data = await response.json()
+        if (!data.authenticated) {
+          // Token nieprawidłowy - przekieruj do logowania
+          Cookies.remove('auth_token', { path: '/' })
+          router.push('/')
+          return
+        }
+
+        // Token poprawny - załaduj dane
+        setIsAuthenticated(true)
+        setLoading(false)
+        loadConfig()
+        loadStorageMode()
+        // Load hourly rate from localStorage
+        const savedRate = localStorage.getItem('hourlyRate')
+        if (savedRate) {
+          setHourlyRate(savedRate)
+        }
+        // Load assigners
+        loadAssigners()
+      } catch (error) {
+        console.error('Error verifying auth:', error)
+        Cookies.remove('auth_token', { path: '/' })
+        router.push('/')
+      }
+    }
+    
+    checkAuth()
+  }, [router, loadConfig])
+
+  const loadStorageMode = async () => {
+    try {
+      const response = await fetch('/api/settings/storage-mode', {
+        credentials: 'include',
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setStorageMode(data.mode || 'mysql')
+      }
+    } catch (error) {
+      console.error('Error loading storage mode:', error)
+    }
+  }
+
+  const handleStorageModeChange = async (mode: 'mysql' | 'json') => {
+    try {
+      const response = await fetch('/api/settings/storage-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ mode })
+      })
+      if (response.ok) {
+        setStorageMode(mode)
+        alert(`Tryb przechowywania zmieniony na: ${mode === 'mysql' ? 'MySQL' : 'JSON'}`)
+      } else {
+        alert('Błąd podczas zmiany trybu przechowywania')
+      }
+    } catch (error) {
+      console.error('Error changing storage mode:', error)
+      alert('Błąd podczas zmiany trybu przechowywania')
+    }
+  }
+
+  const handleMigrateJSONToMySQL = async () => {
+    if (!confirm('Czy na pewno chcesz zmigrować wszystkie dane z JSON do MySQL? Ta operacja może zająć chwilę.')) {
       return
     }
-    setIsAuthenticated(true)
-    setLoading(false)
-    loadConfig()
-    // Load hourly rate from localStorage
-    const savedRate = localStorage.getItem('hourlyRate')
-    if (savedRate) {
-      setHourlyRate(savedRate)
+
+    setMigrateLoading(true)
+    setMigrateResult(null)
+
+    try {
+      const response = await fetch('/api/settings/migrate-json-to-mysql', {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      const data = await response.json()
+      setMigrateResult(data)
+
+      if (data.success) {
+        // Odśwież informacje o bazie danych
+        setTimeout(() => {
+          loadDatabaseInfo()
+        }, 1000)
+      }
+    } catch (error: any) {
+      console.error('Migration error:', error)
+      setMigrateResult({ success: false, message: error.message || 'Błąd podczas migracji' })
+      alert('Błąd podczas migracji danych')
+    } finally {
+      setMigrateLoading(false)
     }
-    // Load assigners
-    loadAssigners()
-  }, [router, loadConfig])
+  }
   
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -110,7 +250,9 @@ const SettingsPage = (): JSX.Element | null => {
   const loadAssigners = async () => {
     setAssignersLoading(true)
     try {
-      const response = await fetch('/api/assigners')
+      const response = await fetch('/api/assigners', {
+        credentials: 'include',
+      })
       if (response.ok) {
         const data = await response.json()
         setAssigners(data)
@@ -130,6 +272,7 @@ const SettingsPage = (): JSX.Element | null => {
       
       const response = await fetch('/api/assigners/upload', {
         method: 'POST',
+        credentials: 'include',
         body: formData
       })
       
@@ -159,6 +302,7 @@ const SettingsPage = (): JSX.Element | null => {
       const response = await fetch('/api/assigners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name: newAssignerName, avatar: newAssignerAvatar })
       })
       
@@ -182,6 +326,7 @@ const SettingsPage = (): JSX.Element | null => {
       const response = await fetch('/api/assigners', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ id, name, avatar })
       })
       
@@ -205,7 +350,8 @@ const SettingsPage = (): JSX.Element | null => {
     
     try {
       const response = await fetch(`/api/assigners?id=${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include',
       })
       
       if (response.ok) {
@@ -243,6 +389,7 @@ const SettingsPage = (): JSX.Element | null => {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(config),
       })
       
@@ -271,6 +418,7 @@ const SettingsPage = (): JSX.Element | null => {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(config),
       })
       
@@ -287,7 +435,9 @@ const SettingsPage = (): JSX.Element | null => {
     setInfoLoading(true)
     setDbInfo(null)
     try {
-      const response = await fetch('/api/settings/db-info')
+      const response = await fetch('/api/settings/db-info', {
+        credentials: 'include',
+      })
       if (response.ok) {
         const data = await response.json()
         setDbInfo(data)
@@ -311,6 +461,7 @@ const SettingsPage = (): JSX.Element | null => {
     try {
       const response = await fetch('/api/settings/db-init', {
         method: 'POST',
+        credentials: 'include',
       })
       const data = await response.json()
       
@@ -378,7 +529,7 @@ const SettingsPage = (): JSX.Element | null => {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <span style={{ fontSize: '16px' }}>⚙️</span>
+                <Settings size={18} color="#ffffff" />
               </div>
               <h1 style={{ 
                 fontSize: '16px', 
@@ -418,7 +569,7 @@ const SettingsPage = (): JSX.Element | null => {
               }}
               title={isDark ? 'Przełącz na jasny motyw' : 'Przełącz na ciemny motyw'}
             >
-              {isDark ? '☀️' : '🌙'}
+              {isDark ? <Sun size={20} color="#FBBF24" /> : <Moon size={20} color="#6B7280" />}
             </button>
             <button
               onClick={() => router.push('/')}
@@ -664,6 +815,133 @@ const SettingsPage = (): JSX.Element | null => {
             }}>
               Konfiguracja połączenia MySQL
             </h2>
+
+            {/* Tryb przechowywania danych */}
+            <div style={{ 
+              marginBottom: '32px', 
+              padding: '20px', 
+              background: isDark ? '#1a1a1a' : '#F9FAFB',
+              borderRadius: '12px',
+              border: `1px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`
+            }}>
+              <h3 style={{ 
+                fontSize: '16px', 
+                fontWeight: '600', 
+                color: isDark ? '#F9FAFB' : '#1F2937', 
+                marginBottom: '16px' 
+              }}>
+                Tryb przechowywania danych
+              </h3>
+              <p style={{ 
+                fontSize: '13px', 
+                color: isDark ? '#888' : '#6B7280', 
+                marginBottom: '16px',
+                lineHeight: '1.6'
+              }}>
+                Wybierz sposób przechowywania danych zadań i czasu pracy. 
+                MySQL oferuje lepszą wydajność i skalowalność, JSON jest prostszy w konfiguracji.
+              </p>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => handleStorageModeChange('mysql')}
+                  style={{
+                    padding: '12px 24px',
+                    background: storageMode === 'mysql' 
+                      ? '#d22f27' 
+                      : (isDark ? '#2a2a2a' : '#ffffff'),
+                    color: storageMode === 'mysql' 
+                      ? '#ffffff' 
+                      : (isDark ? '#ffffff' : '#1F2937'),
+                    border: `2px solid ${storageMode === 'mysql' ? '#d22f27' : (isDark ? '#2a2a2a' : '#E5E7EB')}`,
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (storageMode !== 'mysql') {
+                      e.currentTarget.style.borderColor = '#d22f27'
+                      e.currentTarget.style.background = isDark ? '#2a2a2a' : '#F3F4F6'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (storageMode !== 'mysql') {
+                      e.currentTarget.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
+                      e.currentTarget.style.background = isDark ? '#2a2a2a' : '#ffffff'
+                    }
+                  }}
+                >
+                  {storageMode === 'mysql' && <CheckCircle2 size={16} color="#ffffff" />}
+                  <span>MySQL (domyślny)</span>
+                </button>
+                <button
+                  onClick={() => handleStorageModeChange('json')}
+                  style={{
+                    padding: '12px 24px',
+                    background: storageMode === 'json' 
+                      ? '#d22f27' 
+                      : (isDark ? '#2a2a2a' : '#ffffff'),
+                    color: storageMode === 'json' 
+                      ? '#ffffff' 
+                      : (isDark ? '#ffffff' : '#1F2937'),
+                    border: `2px solid ${storageMode === 'json' ? '#d22f27' : (isDark ? '#2a2a2a' : '#E5E7EB')}`,
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (storageMode !== 'json') {
+                      e.currentTarget.style.borderColor = '#d22f27'
+                      e.currentTarget.style.background = isDark ? '#2a2a2a' : '#F3F4F6'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (storageMode !== 'json') {
+                      e.currentTarget.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
+                      e.currentTarget.style.background = isDark ? '#2a2a2a' : '#ffffff'
+                    }
+                  }}
+                >
+                  {storageMode === 'json' && <CheckCircle2 size={16} color="#ffffff" />}
+                  <span>JSON (plik)</span>
+                </button>
+              </div>
+              {storageMode === 'mysql' && (
+                <p style={{ 
+                  fontSize: '12px', 
+                  color: isDark ? '#10B981' : '#059669', 
+                  marginTop: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <Info size={14} color={isDark ? '#10B981' : '#059669'} />
+                  <span>Dane będą zapisywane do bazy danych MySQL. Upewnij się, że konfiguracja jest poprawna.</span>
+                </p>
+              )}
+              {storageMode === 'json' && (
+                <p style={{ 
+                  fontSize: '12px', 
+                  color: isDark ? '#FBBF24' : '#D97706', 
+                  marginTop: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <AlertTriangle size={14} color={isDark ? '#FBBF24' : '#D97706'} />
+                  <span>Dane będą zapisywane do pliku JSON (data/work-time.json). MySQL nie będzie używany.</span>
+                </p>
+              )}
+            </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '600px' }}>
               <div>
@@ -671,7 +949,7 @@ const SettingsPage = (): JSX.Element | null => {
                   display: 'block', 
                   marginBottom: '8px', 
                   fontWeight: '600',
-                  color: '#374151',
+                  color: isDark ? '#F9FAFB' : '#374151',
                   fontSize: '14px'
                 }}>
                   Host
@@ -684,20 +962,21 @@ const SettingsPage = (): JSX.Element | null => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: '2px solid #E5E7EB',
+                    border: `2px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
                     borderRadius: '8px',
                     fontSize: '15px',
-                    background: '#F9FAFB',
+                    background: isDark ? '#1a1a1a' : '#F9FAFB',
+                    color: isDark ? '#ffffff' : '#1F2937',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#d22f27'
-                    e.target.style.background = 'white'
-                    e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)'
+                    e.target.style.background = isDark ? '#2a2a2a' : 'white'
+                    e.target.style.boxShadow = '0 0 0 3px rgba(210, 47, 39, 0.1)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#E5E7EB'
-                    e.target.style.background = '#F9FAFB'
+                    e.target.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
+                    e.target.style.background = isDark ? '#1a1a1a' : '#F9FAFB'
                     e.target.style.boxShadow = 'none'
                   }}
                 />
@@ -708,7 +987,7 @@ const SettingsPage = (): JSX.Element | null => {
                   display: 'block', 
                   marginBottom: '8px', 
                   fontWeight: '600',
-                  color: '#374151',
+                  color: isDark ? '#F9FAFB' : '#374151',
                   fontSize: '14px'
                 }}>
                   Port
@@ -721,20 +1000,21 @@ const SettingsPage = (): JSX.Element | null => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: '2px solid #E5E7EB',
+                    border: `2px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
                     borderRadius: '8px',
                     fontSize: '15px',
-                    background: '#F9FAFB',
+                    background: isDark ? '#1a1a1a' : '#F9FAFB',
+                    color: isDark ? '#ffffff' : '#1F2937',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#d22f27'
-                    e.target.style.background = 'white'
-                    e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)'
+                    e.target.style.background = isDark ? '#2a2a2a' : 'white'
+                    e.target.style.boxShadow = '0 0 0 3px rgba(210, 47, 39, 0.1)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#E5E7EB'
-                    e.target.style.background = '#F9FAFB'
+                    e.target.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
+                    e.target.style.background = isDark ? '#1a1a1a' : '#F9FAFB'
                     e.target.style.boxShadow = 'none'
                   }}
                 />
@@ -745,7 +1025,7 @@ const SettingsPage = (): JSX.Element | null => {
                   display: 'block', 
                   marginBottom: '8px', 
                   fontWeight: '600',
-                  color: '#374151',
+                  color: isDark ? '#F9FAFB' : '#374151',
                   fontSize: '14px'
                 }}>
                   Użytkownik
@@ -758,20 +1038,21 @@ const SettingsPage = (): JSX.Element | null => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: '2px solid #E5E7EB',
+                    border: `2px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
                     borderRadius: '8px',
                     fontSize: '15px',
-                    background: '#F9FAFB',
+                    background: isDark ? '#1a1a1a' : '#F9FAFB',
+                    color: isDark ? '#ffffff' : '#1F2937',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#d22f27'
-                    e.target.style.background = 'white'
-                    e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)'
+                    e.target.style.background = isDark ? '#2a2a2a' : 'white'
+                    e.target.style.boxShadow = '0 0 0 3px rgba(210, 47, 39, 0.1)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#E5E7EB'
-                    e.target.style.background = '#F9FAFB'
+                    e.target.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
+                    e.target.style.background = isDark ? '#1a1a1a' : '#F9FAFB'
                     e.target.style.boxShadow = 'none'
                   }}
                 />
@@ -782,7 +1063,7 @@ const SettingsPage = (): JSX.Element | null => {
                   display: 'block', 
                   marginBottom: '8px', 
                   fontWeight: '600',
-                  color: '#374151',
+                  color: isDark ? '#F9FAFB' : '#374151',
                   fontSize: '14px'
                 }}>
                   Hasło {!config.password && hasPassword && <span style={{ color: '#d22f27', fontSize: '12px', fontWeight: '400' }}>(użyje zapisanego)</span>}
@@ -795,31 +1076,33 @@ const SettingsPage = (): JSX.Element | null => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: '2px solid #E5E7EB',
+                    border: `2px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
                     borderRadius: '8px',
                     fontSize: '15px',
-                    background: '#F9FAFB',
+                    background: isDark ? '#1a1a1a' : '#F9FAFB',
+                    color: isDark ? '#ffffff' : '#1F2937',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#d22f27'
-                    e.target.style.background = 'white'
-                    e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)'
+                    e.target.style.background = isDark ? '#2a2a2a' : 'white'
+                    e.target.style.boxShadow = '0 0 0 3px rgba(210, 47, 39, 0.1)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#E5E7EB'
-                    e.target.style.background = '#F9FAFB'
+                    e.target.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
+                    e.target.style.background = isDark ? '#1a1a1a' : '#F9FAFB'
                     e.target.style.boxShadow = 'none'
                   }}
                 />
                 {hasPassword && (
-                  <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '6px' }}>
+                  <p style={{ fontSize: '12px', color: isDark ? '#888' : '#6B7280', marginTop: '6px' }}>
                     {config.password ? 'Zostanie zapisane nowe hasło' : 'Pozostaw puste aby użyć zapisanego hasła przy teście połączenia'}
                   </p>
                 )}
                 {!hasPassword && !config.password && (
-                  <p style={{ fontSize: '12px', color: '#d22f27', marginTop: '6px' }}>
-                    ⚠️ Hasło jest wymagane do połączenia z bazą danych
+                  <p style={{ fontSize: '12px', color: '#d22f27', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <AlertTriangle size={12} color="#d22f27" />
+                    <span>Hasło jest wymagane do połączenia z bazą danych</span>
                   </p>
                 )}
               </div>
@@ -829,7 +1112,7 @@ const SettingsPage = (): JSX.Element | null => {
                   display: 'block', 
                   marginBottom: '8px', 
                   fontWeight: '600',
-                  color: '#374151',
+                  color: isDark ? '#F9FAFB' : '#374151',
                   fontSize: '14px'
                 }}>
                   Nazwa bazy danych
@@ -842,20 +1125,21 @@ const SettingsPage = (): JSX.Element | null => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: '2px solid #E5E7EB',
+                    border: `2px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
                     borderRadius: '8px',
                     fontSize: '15px',
-                    background: '#F9FAFB',
+                    background: isDark ? '#1a1a1a' : '#F9FAFB',
+                    color: isDark ? '#ffffff' : '#1F2937',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#d22f27'
-                    e.target.style.background = 'white'
-                    e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)'
+                    e.target.style.background = isDark ? '#2a2a2a' : 'white'
+                    e.target.style.boxShadow = '0 0 0 3px rgba(210, 47, 39, 0.1)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#E5E7EB'
-                    e.target.style.background = '#F9FAFB'
+                    e.target.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
+                    e.target.style.background = isDark ? '#1a1a1a' : '#F9FAFB'
                     e.target.style.boxShadow = 'none'
                   }}
                 />
@@ -947,7 +1231,7 @@ const SettingsPage = (): JSX.Element | null => {
                 }}>
                   {testResult.success ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ fontSize: '20px' }}>✓</span>
+                      <CheckCircle2 size={20} color={isDark ? '#D1FAE5' : '#065F46'} />
                       <strong style={{ fontSize: '15px' }}>
                         Połączenie z bazą danych zostało nawiązane pomyślnie!
                       </strong>
@@ -955,7 +1239,7 @@ const SettingsPage = (): JSX.Element | null => {
                   ) : (
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                        <span style={{ fontSize: '20px' }}>✗</span>
+                        <XCircle size={20} color={isDark ? '#FEE2E2' : '#991B1B'} />
                         <strong style={{ fontSize: '15px' }}>Błąd połączenia:</strong>
                       </div>
                       <p style={{ marginTop: '8px', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>
@@ -1067,75 +1351,249 @@ const SettingsPage = (): JSX.Element | null => {
 
         {activeTab === 'info' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
               <h2 style={{ 
                 margin: 0,
                 fontSize: '22px',
                 fontWeight: '700',
-                color: '#1F2937',
+                color: isDark ? '#F9FAFB' : '#1F2937',
                 letterSpacing: '-0.5px'
               }}>
                 Informacje o bazie danych
               </h2>
-              <button
-                onClick={initializeDatabase}
-                disabled={initLoading}
-                style={{
-                  padding: '10px 20px',
-                  background: initLoading 
-                    ? '#D1D5DB' 
-                    : '#d22f27',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  cursor: initLoading ? 'not-allowed' : 'pointer',
-                  fontWeight: '600',
-                  transition: 'all 0.2s ease',
-                  boxShadow: initLoading 
-                    ? 'none' 
-                    : '0 4px 6px -1px rgba(139, 92, 246, 0.3)'
-                }}
-                onMouseEnter={(e) => {
-                  if (!initLoading) {
-                    e.currentTarget.style.transform = 'translateY(-1px)'
-                    e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(139, 92, 246, 0.3)'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!initLoading) {
-                    e.currentTarget.style.transform = 'translateY(0)'
-                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(139, 92, 246, 0.3)'
-                  }
-                }}
-              >
-                {initLoading ? 'Tworzenie...' : 'Utwórz tabele'}
-              </button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleMigrateJSONToMySQL}
+                  disabled={migrateLoading}
+                  style={{
+                    padding: '10px 20px',
+                    background: migrateLoading 
+                      ? '#D1D5DB' 
+                      : '#10B981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    cursor: migrateLoading ? 'not-allowed' : 'pointer',
+                    fontWeight: '600',
+                    transition: 'all 0.2s ease',
+                    boxShadow: migrateLoading 
+                      ? 'none' 
+                      : '0 4px 6px -1px rgba(16, 185, 129, 0.3)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!migrateLoading) {
+                      e.currentTarget.style.transform = 'translateY(-1px)'
+                      e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(16, 185, 129, 0.3)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!migrateLoading) {
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(16, 185, 129, 0.3)'
+                    }
+                  }}
+                >
+                  {migrateLoading ? 'Migrowanie...' : 'Migruj JSON → MySQL'}
+                </button>
+                <button
+                  onClick={initializeDatabase}
+                  disabled={initLoading}
+                  style={{
+                    padding: '10px 20px',
+                    background: initLoading 
+                      ? '#D1D5DB' 
+                      : '#d22f27',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    cursor: initLoading ? 'not-allowed' : 'pointer',
+                    fontWeight: '600',
+                    transition: 'all 0.2s ease',
+                    boxShadow: initLoading 
+                      ? 'none' 
+                      : '0 4px 6px -1px rgba(139, 92, 246, 0.3)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!initLoading) {
+                      e.currentTarget.style.transform = 'translateY(-1px)'
+                      e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(139, 92, 246, 0.3)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!initLoading) {
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(139, 92, 246, 0.3)'
+                    }
+                  }}
+                >
+                  {initLoading ? 'Tworzenie...' : 'Utwórz tabele'}
+                </button>
+              </div>
             </div>
+
+            {migrateLoading && (
+              <div style={{
+                padding: '20px',
+                borderRadius: '10px',
+                background: isDark ? '#1F2937' : '#F9FAFB',
+                border: '2px solid #10B981',
+                marginBottom: '24px'
+              }}>
+                <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: isDark ? '#D1FAE5' : '#065F46' }}>
+                    Migracja w toku...
+                  </span>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: isDark ? '#D1FAE5' : '#065F46' }}>
+                    {migrateResult?.progress?.percentage || 0}%
+                  </span>
+                </div>
+                <div style={{
+                  width: '100%',
+                  height: '24px',
+                  background: isDark ? '#374151' : '#E5E7EB',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  position: 'relative'
+                }}>
+                  <div style={{
+                    width: `${migrateResult?.progress?.percentage || 0}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
+                    transition: 'width 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}>
+                    {migrateResult?.progress?.percentage || 0}%
+                  </div>
+                </div>
+                {migrateResult?.progress?.stage && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                    {migrateResult.progress.stage}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {migrateResult && !migrateLoading && (
+              <div style={{
+                padding: '20px',
+                borderRadius: '10px',
+                background: migrateResult.success 
+                  ? (isDark ? 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)' : 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)')
+                  : (isDark ? 'linear-gradient(135deg, #7F1D1D 0%, #991B1B 100%)' : 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)'),
+                border: `2px solid ${migrateResult.success ? '#10B981' : '#d22f27'}`,
+                color: migrateResult.success 
+                  ? (isDark ? '#D1FAE5' : '#065F46')
+                  : (isDark ? '#FEE2E2' : '#991B1B'),
+                marginBottom: '24px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  {migrateResult.success ? (
+                    <CheckCircle2 size={20} color={isDark ? '#D1FAE5' : '#065F46'} />
+                  ) : (
+                    <XCircle size={20} color={isDark ? '#FEE2E2' : '#991B1B'} />
+                  )}
+                  <strong style={{ fontSize: '15px' }}>{migrateResult.message}</strong>
+                </div>
+
+                {migrateResult.migrated && (
+                  <div style={{ marginBottom: '16px', padding: '12px', background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>Podsumowanie migracji:</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', fontSize: '13px' }}>
+                      <div>Dni: <strong>{migrateResult.migrated.days}</strong></div>
+                      <div>Zadania: <strong>{migrateResult.migrated.tasks}</strong></div>
+                    </div>
+                  </div>
+                )}
+
+                {migrateResult.details && (
+                  <div style={{ marginBottom: '16px', padding: '12px', background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>Szczegóły migracji:</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', fontSize: '13px' }}>
+                      <div>Klienci: <strong>{migrateResult.details.clientsProcessed}</strong></div>
+                      <div>Miesiące: <strong>{migrateResult.details.monthsProcessed}</strong></div>
+                      <div>Dni z zadaniami: <strong>{migrateResult.details.daysWithTasks}</strong></div>
+                      <div>Dni pominięte: <strong>{migrateResult.details.daysSkipped}</strong></div>
+                      <div>Zadania dodane: <strong style={{ color: '#10B981' }}>{migrateResult.details.tasksAdded}</strong></div>
+                      <div>Zadania zaktualizowane: <strong style={{ color: '#F59E0B' }}>{migrateResult.details.tasksUpdated}</strong></div>
+                      <div>Zadania usunięte: <strong style={{ color: '#d22f27' }}>{migrateResult.details.tasksDeleted || 0}</strong></div>
+                      <div>Błędy: <strong style={{ color: migrateResult.details.errorsCount > 0 ? '#d22f27' : '#10B981' }}>{migrateResult.details.errorsCount}</strong></div>
+                    </div>
+                  </div>
+                )}
+
+                {migrateResult.details?.errors && migrateResult.details.errors.length > 0 && (
+                  <div style={{ marginTop: '16px', padding: '12px', background: isDark ? 'rgba(127, 29, 29, 0.3)' : 'rgba(254, 242, 242, 0.8)', borderRadius: '8px', border: '1px solid #d22f27' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#d22f27' }}>Błędy podczas migracji:</div>
+                    <div style={{ maxHeight: '200px', overflowY: 'auto', fontSize: '12px' }}>
+                      {migrateResult.details.errors.map((error: string, index: number) => (
+                        <div key={index} style={{ marginBottom: '4px', padding: '4px 8px', background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)', borderRadius: '4px' }}>
+                          {error}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {migrateResult.debug && (
+                  <details style={{ marginTop: '16px' }}>
+                    <summary style={{ cursor: 'pointer', fontSize: '13px', fontWeight: '600', padding: '8px', background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)', borderRadius: '4px' }}>
+                      Szczegóły debugowania (kliknij, aby rozwinąć)
+                    </summary>
+                    <pre style={{ 
+                      marginTop: '8px', 
+                      padding: '12px', 
+                      background: isDark ? '#1F2937' : '#F9FAFB', 
+                      borderRadius: '8px', 
+                      overflow: 'auto', 
+                      fontSize: '11px',
+                      maxHeight: '400px',
+                      color: isDark ? '#D1D5DB' : '#374151',
+                      border: '1px solid',
+                      borderColor: isDark ? '#374151' : '#E5E7EB'
+                    }}>
+                      {JSON.stringify(migrateResult.debug, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            )}
 
             {initResult && (
               <div style={{
                 padding: '16px 20px',
                 borderRadius: '10px',
                 background: initResult.success 
-                  ? 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)' 
-                  : 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
+                  ? (isDark ? 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)' : 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)')
+                  : (isDark ? 'linear-gradient(135deg, #7F1D1D 0%, #991B1B 100%)' : 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)'),
                 border: `2px solid ${initResult.success ? '#10B981' : '#d22f27'}`,
-                color: initResult.success ? '#065F46' : '#991B1B',
+                color: initResult.success 
+                  ? (isDark ? '#D1FAE5' : '#065F46')
+                  : (isDark ? '#FEE2E2' : '#991B1B'),
                 marginBottom: '24px'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '20px' }}>{initResult.success ? '✓' : '✗'}</span>
+                  {initResult.success ? (
+                    <CheckCircle2 size={20} color={isDark ? '#D1FAE5' : '#065F46'} />
+                  ) : (
+                    <XCircle size={20} color={isDark ? '#FEE2E2' : '#991B1B'} />
+                  )}
                   <strong style={{ fontSize: '15px' }}>{initResult.message}</strong>
                 </div>
               </div>
             )}
-            
+
             {infoLoading ? (
               <div style={{ 
                 padding: '40px', 
                 textAlign: 'center',
-                color: '#6B7280',
+                color: isDark ? '#888' : '#6B7280',
                 fontSize: '15px'
               }}>
                 Ładowanie informacji...
@@ -1145,15 +1603,17 @@ const SettingsPage = (): JSX.Element | null => {
                 <div style={{ 
                   marginBottom: '32px',
                   padding: '20px',
-                  background: 'linear-gradient(135deg, #EDE9FE 0%, #DDD6FE 100%)',
+                  background: isDark 
+                    ? 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%)'
+                    : 'linear-gradient(135deg, #EDE9FE 0%, #DDD6FE 100%)',
                   borderRadius: '12px',
-                  border: '2px solid #C084FC'
+                  border: `2px solid ${isDark ? '#2a2a2a' : '#C084FC'}`
                 }}>
                   <h3 style={{ 
                     marginBottom: '8px',
                     fontSize: '14px',
                     fontWeight: '600',
-                    color: '#6B7280',
+                    color: isDark ? '#888' : '#6B7280',
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px'
                   }}>
@@ -1174,15 +1634,15 @@ const SettingsPage = (): JSX.Element | null => {
                     marginBottom: '16px',
                     fontSize: '18px',
                     fontWeight: '700',
-                    color: '#1F2937'
+                    color: isDark ? '#F9FAFB' : '#1F2937'
                   }}>
                     Tabele w bazie danych
                   </h3>
                   <div style={{
                     borderRadius: '12px',
                     overflow: 'hidden',
-                    border: '1px solid #E5E7EB',
-                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+                    border: `1px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
+                    boxShadow: isDark ? '0 1px 3px 0 rgba(0, 0, 0, 0.3)' : '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
                   }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
@@ -1234,8 +1694,9 @@ const SettingsPage = (): JSX.Element | null => {
                             <td colSpan={3} style={{ 
                               padding: '32px', 
                               textAlign: 'center', 
-                              color: '#9CA3AF',
-                              fontSize: '14px'
+                              color: isDark ? '#666' : '#9CA3AF',
+                              fontSize: '14px',
+                              background: isDark ? '#1a1a1a' : '#fff'
                             }}>
                               Brak tabel w bazie danych
                             </td>
@@ -1243,22 +1704,26 @@ const SettingsPage = (): JSX.Element | null => {
                         ) : (
                           dbInfo.tables.map((table, index) => (
                             <tr key={index} style={{ 
-                              background: index % 2 === 0 ? '#fff' : '#F9FAFB',
+                              background: index % 2 === 0 
+                                ? (isDark ? '#1a1a1a' : '#fff')
+                                : (isDark ? '#141414' : '#F9FAFB'),
                               transition: 'background-color 0.15s ease'
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#EDE9FE'
+                              e.currentTarget.style.background = isDark ? '#2a2a2a' : '#EDE9FE'
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.background = index % 2 === 0 ? '#fff' : '#F9FAFB'
+                              e.currentTarget.style.background = index % 2 === 0 
+                                ? (isDark ? '#1a1a1a' : '#fff')
+                                : (isDark ? '#141414' : '#F9FAFB')
                             }}
                             >
                               <td style={{ 
                                 padding: '14px 16px', 
                                 border: 'none',
-                                borderBottom: '1px solid #E5E7EB',
+                                borderBottom: `1px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
                                 fontWeight: '600',
-                                color: '#1F2937'
+                                color: isDark ? '#F9FAFB' : '#1F2937'
                               }}>
                                 {table.name}
                               </td>
@@ -1266,8 +1731,8 @@ const SettingsPage = (): JSX.Element | null => {
                                 padding: '14px 16px', 
                                 textAlign: 'right', 
                                 border: 'none',
-                                borderBottom: '1px solid #E5E7EB',
-                                color: '#6B7280'
+                                borderBottom: `1px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
+                                color: isDark ? '#888' : '#6B7280'
                               }}>
                                 {table.rows.toLocaleString()}
                               </td>
@@ -1275,7 +1740,7 @@ const SettingsPage = (): JSX.Element | null => {
                                 padding: '14px 16px', 
                                 textAlign: 'right', 
                                 border: 'none',
-                                borderBottom: '1px solid #E5E7EB',
+                                borderBottom: `1px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
                                 color: '#d22f27',
                                 fontWeight: '600'
                               }}>
@@ -1294,7 +1759,7 @@ const SettingsPage = (): JSX.Element | null => {
                     onClick={loadDatabaseInfo}
                     style={{
                       padding: '10px 20px',
-                      background: 'white',
+                      background: isDark ? '#1a1a1a' : 'white',
                       color: '#d22f27',
                       border: '2px solid #d22f27',
                       borderRadius: '8px',
@@ -1309,7 +1774,7 @@ const SettingsPage = (): JSX.Element | null => {
                       e.currentTarget.style.transform = 'translateY(-1px)'
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'white'
+                      e.currentTarget.style.background = isDark ? '#1a1a1a' : 'white'
                       e.currentTarget.style.color = '#d22f27'
                       e.currentTarget.style.transform = 'translateY(0)'
                     }}
@@ -1323,12 +1788,14 @@ const SettingsPage = (): JSX.Element | null => {
                 <div style={{
                   padding: '20px',
                   borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
+                  background: isDark 
+                    ? 'linear-gradient(135deg, #78350F 0%, #92400E 100%)'
+                    : 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
                   border: '2px solid #F59E0B',
                   marginBottom: '24px'
                 }}>
                   <p style={{ 
-                    color: '#92400E', 
+                    color: isDark ? '#FDE68A' : '#92400E', 
                     marginBottom: '12px', 
                     fontWeight: '700',
                     fontSize: '15px',
@@ -1336,13 +1803,14 @@ const SettingsPage = (): JSX.Element | null => {
                     alignItems: 'center',
                     gap: '8px'
                   }}>
-                    <span>⚠️</span> Nie można pobrać informacji o bazie danych
+                    <AlertTriangle size={16} color={isDark ? '#FDE68A' : '#92400E'} />
+                    <span>Nie można pobrać informacji o bazie danych</span>
                   </p>
-                  <p style={{ color: '#92400E', fontSize: '14px', marginBottom: '8px' }}>
+                  <p style={{ color: isDark ? '#FDE68A' : '#92400E', fontSize: '14px', marginBottom: '8px' }}>
                     Upewnij się, że:
                   </p>
                   <ul style={{ 
-                    color: '#92400E', 
+                    color: isDark ? '#FDE68A' : '#92400E', 
                     fontSize: '14px', 
                     marginTop: '8px', 
                     paddingLeft: '20px',
@@ -1815,9 +2283,11 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
   const [editingClient, setEditingClient] = useState<number | null>(null)
   const [newClientName, setNewClientName] = useState('')
   const [newClientLogo, setNewClientLogo] = useState('')
+  const [newClientWebsite, setNewClientWebsite] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [editingClientName, setEditingClientName] = useState('')
   const [editingClientLogo, setEditingClientLogo] = useState('')
+  const [editingClientWebsite, setEditingClientWebsite] = useState('')
 
   useEffect(() => {
     loadClients()
@@ -1830,6 +2300,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
       // Sprawdź czy są dane bez klienta
       const response = await fetch('/api/clients/migrate', {
         method: 'POST',
+        credentials: 'include',
       })
       if (response.ok) {
         const result = await response.json()
@@ -1851,7 +2322,9 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
   const loadClients = async () => {
     setClientsLoading(true)
     try {
-      const response = await fetch('/api/clients')
+      const response = await fetch('/api/clients', {
+        credentials: 'include',
+      })
       if (response.ok) {
         const data = await response.json()
         setClients(data)
@@ -1872,6 +2345,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
 
       const response = await fetch('/api/clients/upload', {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       })
 
@@ -1904,7 +2378,8 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
       const response = await fetch('/api/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newClientName.trim(), logo: newClientLogo }),
+        credentials: 'include',
+        body: JSON.stringify({ name: newClientName.trim(), logo: newClientLogo, website: newClientWebsite.trim() }),
       })
 
       if (response.ok) {
@@ -1912,6 +2387,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
         setClients([...clients, newClient])
         setNewClientName('')
         setNewClientLogo('')
+        setNewClientWebsite('')
         window.dispatchEvent(new Event('clientUpdated'))
         alert('Klient został dodany')
       } else {
@@ -1934,7 +2410,8 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
       const response = await fetch('/api/clients', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, name: editingClientName.trim(), logo: editingClientLogo }),
+        credentials: 'include',
+        body: JSON.stringify({ id, name: editingClientName.trim(), logo: editingClientLogo, website: editingClientWebsite.trim() }),
       })
 
       if (response.ok) {
@@ -1942,6 +2419,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
         setEditingClient(null)
         setEditingClientName('')
         setEditingClientLogo('')
+        setEditingClientWebsite('')
         window.dispatchEvent(new Event('clientUpdated'))
         alert('Klient został zaktualizowany')
       } else {
@@ -1962,6 +2440,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
     try {
       const response = await fetch(`/api/clients?id=${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       })
 
       if (response.ok) {
@@ -1982,12 +2461,14 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
     setEditingClient(client.id)
     setEditingClientName(client.name)
     setEditingClientLogo(client.logo || '')
+    setEditingClientWebsite(client.website || '')
   }
 
   const handleCancelEdit = () => {
     setEditingClient(null)
     setEditingClientName('')
     setEditingClientLogo('')
+    setEditingClientWebsite('')
   }
 
   return (
@@ -2109,6 +2590,23 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                 outline: 'none'
               }}
             />
+            <input
+              type="url"
+              value={newClientWebsite}
+              onChange={(e) => setNewClientWebsite(e.target.value)}
+              placeholder="Adres strony www (opcjonalnie)..."
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                fontSize: '15px',
+                background: '#1a1a1a',
+                color: '#ffffff',
+                border: '1px solid #2a2a2a',
+                borderRadius: '4px',
+                marginBottom: '8px',
+                outline: 'none'
+              }}
+            />
             <button
               onClick={handleCreateClient}
               disabled={uploadingLogo}
@@ -2214,21 +2712,39 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                         />
                       </label>
                     </div>
-                    <input
-                      type="text"
-                      value={editingClientName}
-                      onChange={(e) => setEditingClientName(e.target.value)}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        fontSize: '15px',
-                        background: '#1a1a1a',
-                        color: '#ffffff',
-                        border: '1px solid #d22f27',
-                        borderRadius: '4px',
-                        outline: 'none'
-                      }}
-                    />
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <input
+                        type="text"
+                        value={editingClientName}
+                        onChange={(e) => setEditingClientName(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          fontSize: '15px',
+                          background: '#1a1a1a',
+                          color: '#ffffff',
+                          border: '1px solid #d22f27',
+                          borderRadius: '4px',
+                          outline: 'none'
+                        }}
+                      />
+                      <input
+                        type="url"
+                        value={editingClientWebsite}
+                        onChange={(e) => setEditingClientWebsite(e.target.value)}
+                        placeholder="Adres strony www (opcjonalnie)..."
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          fontSize: '15px',
+                          background: '#1a1a1a',
+                          color: '#ffffff',
+                          border: '1px solid #d22f27',
+                          borderRadius: '4px',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
                     <button
                       onClick={() => handleUpdateClient(client.id)}
                       style={{

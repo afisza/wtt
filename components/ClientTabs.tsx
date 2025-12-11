@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Globe } from 'lucide-react'
 import CalendarTable from './CalendarTable'
 
 interface Client {
   id: number
   name: string
   logo: string
+  website?: string
 }
 
 interface ClientTabsProps {
@@ -18,6 +19,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
   const [clients, setClients] = useState<Client[]>([])
   const [activeClientId, setActiveClientId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadClients()
@@ -29,19 +31,27 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
     try {
       const response = await fetch('/api/clients/migrate', {
         method: 'POST',
+        credentials: 'include',
       })
       if (response.ok) {
         const result = await response.json()
         if (result.success) {
           // Przeładuj klientów po migracji
-          const updatedClients = await fetch('/api/clients').then(r => r.json())
-          setClients(updatedClients)
-          
-          // Ustaw nowo utworzonego klienta jako aktywnego jeśli nie ma aktywnego
-          if (result.clientId && activeClientId === null && updatedClients.length > 0) {
-            const bestMarketClient = updatedClients.find((c: any) => c.id === result.clientId || c.name === 'Best Market')
-            if (bestMarketClient) {
-              setActiveClientId(bestMarketClient.id)
+          const clientsResponse = await fetch('/api/clients', {
+            credentials: 'include',
+          })
+          if (clientsResponse.ok) {
+            const updatedClients = await clientsResponse.json()
+            if (Array.isArray(updatedClients)) {
+              setClients(updatedClients)
+              
+              // Ustaw nowo utworzonego klienta jako aktywnego jeśli nie ma aktywnego
+              if (result.clientId && activeClientId === null && updatedClients.length > 0) {
+                const bestMarketClient = updatedClients.find((c: any) => c.id === result.clientId || c.name === 'Best Market')
+                if (bestMarketClient) {
+                  setActiveClientId(bestMarketClient.id)
+                }
+              }
             }
           }
         }
@@ -53,15 +63,17 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
 
   useEffect(() => {
     // Ustaw pierwszy klient jako aktywny po załadowaniu
-    if (clients.length > 0 && activeClientId === null) {
-      setActiveClientId(clients[0].id)
-      if (onClientChange) {
-        onClientChange(clients[0].id)
-      }
-    } else if (clients.length === 0 && activeClientId !== null) {
-      setActiveClientId(null)
-      if (onClientChange) {
-        onClientChange(null)
+    if (Array.isArray(clients)) {
+      if (clients.length > 0 && activeClientId === null) {
+        setActiveClientId(clients[0].id)
+        if (onClientChange) {
+          onClientChange(clients[0].id)
+        }
+      } else if (clients.length === 0 && activeClientId !== null) {
+        setActiveClientId(null)
+        if (onClientChange) {
+          onClientChange(null)
+        }
       }
     }
   }, [clients])
@@ -74,13 +86,30 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
 
   const loadClients = async () => {
     try {
-      const response = await fetch('/api/clients')
+      const response = await fetch('/api/clients', {
+        credentials: 'include',
+      })
       if (response.ok) {
         const data = await response.json()
-        setClients(data)
+        // Upewnij się, że data jest tablicą
+        if (Array.isArray(data)) {
+          setClients(data)
+        } else {
+          console.error('Expected array but got:', data)
+          setClients([])
+        }
+      } else {
+        // Jeśli response nie jest OK, nie parsuj JSON - może być błąd
+        console.error('Failed to load clients:', response.status, response.statusText)
+        setClients([])
+        // Jeśli 401, przekieruj do logowania
+        if (response.status === 401) {
+          window.location.href = '/'
+        }
       }
     } catch (error) {
       console.error('Error loading clients:', error)
+      setClients([])
     } finally {
       setLoading(false)
     }
@@ -112,7 +141,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
     )
   }
 
-  if (clients.length === 0) {
+  if (!Array.isArray(clients) || clients.length === 0) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
         <div style={{ color: '#888', marginBottom: '12px', fontSize: '13px' }}>
@@ -147,6 +176,53 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Website link if available */}
+      {(() => {
+        if (!Array.isArray(clients)) {
+          return null
+        }
+        const activeClient = Array.isArray(clients) ? clients.find(c => c.id === activeClientId) : null
+        if (activeClient?.website) {
+          const websiteUrl = activeClient.website.startsWith('http://') || activeClient.website.startsWith('https://') 
+            ? activeClient.website 
+            : `https://${activeClient.website}`
+          return (
+            <div style={{ 
+              marginBottom: '12px', 
+              padding: '8px 12px', 
+              background: '#1a1a1a', 
+              borderRadius: '4px',
+              border: '1px solid #2a2a2a'
+            }}>
+              <a
+                href={websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#d22f27',
+                  textDecoration: 'none',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.textDecoration = 'underline'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.textDecoration = 'none'
+                }}
+              >
+                <Globe size={14} color="#d22f27" />
+                <span>{activeClient.website}</span>
+              </a>
+            </div>
+          )
+        }
+        return null
+      })()}
+      
       {/* Tabs */}
       <div style={{ 
         display: 'flex', 
@@ -157,7 +233,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
         overflowX: 'auto',
         scrollbarWidth: 'thin'
       }}>
-        {clients.map((client) => (
+        {Array.isArray(clients) && clients.map((client) => (
           <button
             key={client.id}
             onClick={() => handleTabClick(client.id)}
@@ -191,7 +267,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
               }
             }}
           >
-            {client.logo ? (
+            {client.logo && !failedLogos.has(client.logo) ? (
               <img
                 src={client.logo}
                 alt={client.name}
@@ -201,6 +277,9 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
                   borderRadius: '2px',
                   objectFit: 'cover',
                   flexShrink: 0
+                }}
+                onError={() => {
+                  setFailedLogos(prev => new Set(prev).add(client.logo))
                 }}
               />
             ) : (
@@ -229,7 +308,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
 
       {/* Calendar Content */}
       {activeClientId !== null && (() => {
-        const activeClient = clients.find(c => c.id === activeClientId)
+        const activeClient = Array.isArray(clients) ? clients.find(c => c.id === activeClientId) : null
         return (
           <div style={{ flex: 1 }}>
             <CalendarTable 
@@ -243,4 +322,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
     </div>
   )
 }
+
+
+
 

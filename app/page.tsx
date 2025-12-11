@@ -2,34 +2,115 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import LoginForm from '@/components/LoginForm'
 import ClientTabs from '@/components/ClientTabs'
 import Cookies from 'js-cookie'
-import { useTheme } from '@/contexts/ThemeContext'
-import { Clock, Sun, Moon, FileText } from 'lucide-react'
+import { Clock, FileText } from 'lucide-react'
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const { theme, toggleTheme } = useTheme()
-  
-  const isDark = theme === 'dark'
 
   useEffect(() => {
-    const token = Cookies.get('auth_token')
-    if (token) {
-      setIsAuthenticated(true)
+    const checkAuth = async () => {
+      // Spróbuj odczytać cookie na różne sposoby
+      let token = Cookies.get('auth_token')
+      
+      // Fallback: sprawdź document.cookie bezpośrednio
+      if (!token) {
+        const cookies = document.cookie.split(';')
+        const authCookie = cookies.find(c => c.trim().startsWith('auth_token='))
+        if (authCookie) {
+          token = authCookie.split('=')[1]
+          console.log('app/page.tsx - Found token in document.cookie')
+        }
+      }
+      
+      console.log('app/page.tsx - Token from cookies:', token ? 'exists' : 'missing')
+      console.log('app/page.tsx - All cookies:', document.cookie)
+      
+      if (token) {
+        // Weryfikuj token przez API
+        try {
+          const response = await fetch('/api/auth/verify', {
+            credentials: 'include',
+          })
+          
+          if (!response.ok) {
+            console.log('app/page.tsx - Verify response not OK:', response.status)
+            Cookies.remove('auth_token', { path: '/' })
+            setIsAuthenticated(false)
+            setLoading(false)
+            return
+          }
+          
+          const data = await response.json()
+          console.log('app/page.tsx - Verify response:', data)
+          
+          if (data.authenticated) {
+            setIsAuthenticated(true)
+          } else {
+            // Token nieprawidłowy - usuń go
+            console.log('app/page.tsx - Token not authenticated, removing cookie')
+            Cookies.remove('auth_token', { path: '/' })
+            setIsAuthenticated(false)
+          }
+        } catch (error) {
+          // Błąd weryfikacji - usuń token
+          console.error('app/page.tsx - Error verifying token:', error)
+          Cookies.remove('auth_token', { path: '/' })
+          setIsAuthenticated(false)
+        }
+      } else {
+        console.log('app/page.tsx - No token found, user not authenticated')
+        setIsAuthenticated(false)
+      }
+      setLoading(false)
     }
-    setLoading(false)
+    checkAuth()
   }, [])
+  
+  // Sprawdź autentykację również po zmianie route (np. po powrocie z settings)
+  useEffect(() => {
+    const handleRouteChange = () => {
+      const token = Cookies.get('auth_token')
+      if (!token && isAuthenticated) {
+        console.log('app/page.tsx - Token missing after route change, checking auth')
+        setIsAuthenticated(false)
+      }
+    }
+    
+    // Sprawdź autentykację po załadowaniu
+    const token = Cookies.get('auth_token')
+    if (token && !isAuthenticated) {
+      console.log('app/page.tsx - Token found but not authenticated, re-checking')
+      const checkAuth = async () => {
+        try {
+          const response = await fetch('/api/auth/verify', {
+            credentials: 'include',
+          })
+          if (response.ok) {
+            const data = await response.json()
+            if (data.authenticated) {
+              setIsAuthenticated(true)
+            }
+          }
+        } catch (error) {
+          console.error('app/page.tsx - Error re-checking auth:', error)
+        }
+      }
+      checkAuth()
+    }
+  }, [isAuthenticated])
 
   const handleLogin = () => {
     setIsAuthenticated(true)
   }
 
   const handleLogout = () => {
-    Cookies.remove('auth_token')
+    Cookies.remove('auth_token', { path: '/' })
     setIsAuthenticated(false)
     router.push('/')
   }
@@ -79,38 +160,8 @@ export default function Home() {
             </h1>
           </div>
           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            {/* Dark Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              style={{
-                padding: '4px',
-                background: 'transparent',
-                color: '#888',
-                border: '1px solid #2a2a2a',
-                borderRadius: '3px',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minWidth: '26px',
-                height: '26px'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#2a2a2a'
-                e.currentTarget.style.color = '#d22f27'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = '#888'
-              }}
-              title={isDark ? 'Przełącz na jasny motyw' : 'Przełącz na ciemny motyw'}
-            >
-              {isDark ? <Sun size={14} color="#FBBF24" /> : <Moon size={14} color="#888" />}
-            </button>
-            <button 
-              onClick={() => router.push('/settings')}
+            <Link 
+              href="/settings"
               style={{ 
                 padding: '4px 8px', 
                 background: 'transparent',
@@ -121,7 +172,9 @@ export default function Home() {
                 fontWeight: '500',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                textDecoration: 'none',
+                display: 'inline-block'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = '#d22f27'
@@ -133,7 +186,7 @@ export default function Home() {
               }}
             >
               Ustawienia
-            </button>
+            </Link>
             <button 
               onClick={handleLogout}
               style={{ 

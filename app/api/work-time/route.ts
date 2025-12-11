@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { getMonthData, saveMonthData } from '@/lib/workTimeDb'
 import { getMonthDataJSON, saveMonthDataJSON } from '@/lib/workTimeJson'
+import { getStorageMode, getDbConfig } from '@/lib/dbConfig'
+import { getConfigFromEnvOrFile } from '@/lib/db'
 
 function getUserId(request: NextRequest): number | null {
   const token = request.cookies.get('auth_token')?.value
@@ -16,7 +18,20 @@ function getUserId(request: NextRequest): number | null {
 }
 
 function isMySQLAvailable(): boolean {
-  return !!(process.env.DB_HOST && process.env.DB_NAME)
+  // Sprawdź tryb przechowywania - jeśli ustawiony na JSON, nie używaj MySQL
+  const storageMode = getStorageMode()
+  if (storageMode === 'json') {
+    return false
+  }
+
+  // Sprawdź zmienne środowiskowe
+  if (process.env.DB_HOST && process.env.DB_NAME) {
+    return true
+  }
+  
+  // Sprawdź plik konfiguracyjny
+  const config = getDbConfig()
+  return !!(config && config.host && config.database)
 }
 
 export async function GET(request: NextRequest) {
@@ -37,17 +52,23 @@ export async function GET(request: NextRequest) {
     
     let monthData: Record<string, any> = {}
     
+    console.log(`[GET /api/work-time] userId=${userId}, monthKey=${monthKey}, clientId=${clientId}, isMySQLAvailable=${isMySQLAvailable()}`)
+    
     if (isMySQLAvailable()) {
       try {
         monthData = await getMonthData(userId, monthKey, clientId)
-      } catch (error) {
-        console.error('MySQL error, falling back to JSON:', error)
+        console.log(`[GET /api/work-time] MySQL returned ${Object.keys(monthData).length} days`)
+      } catch (error: any) {
+        console.error('[GET /api/work-time] MySQL error, falling back to JSON:', error)
+        console.error('[GET /api/work-time] Error details:', error.message)
         monthData = getMonthDataJSON(userId, monthKey, clientId)
       }
     } else {
+      console.log(`[GET /api/work-time] Using JSON mode`)
       monthData = getMonthDataJSON(userId, monthKey, clientId)
     }
     
+    console.log(`[GET /api/work-time] Returning data for ${Object.keys(monthData).length} days`)
     return NextResponse.json({ [monthKey]: monthData })
   } catch (error) {
     console.error('Error loading data:', error)

@@ -24,3 +24,6 @@ ADD INDEX IF NOT EXISTS idx_client (client_id);
 -- Dla istniejących rekordów ustaw domyślnego klienta (jeśli potrzebne)
 -- Możesz utworzyć domyślnego klienta i zaktualizować istniejące rekordy
 
+
+
+

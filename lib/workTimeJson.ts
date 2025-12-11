@@ -5,7 +5,7 @@ const DATA_FILE = path.join(process.cwd(), 'data', 'work-time.json')
 
 export interface Task {
   text: string
-  assignedBy: string
+  assignedBy: string[]  // Kto zlecił zadanie (może być wiele osób)
   startTime: string  // Format: HH:MM
   endTime: string    // Format: HH:MM
   completed?: boolean // Czy zadanie zostało wykonane (deprecated - użyj status)
@@ -24,7 +24,7 @@ function normalizeTasks(tasks: any): Task[] {
   if (Array.isArray(tasks)) {
     return tasks.map(task => {
       if (typeof task === 'string') {
-        return { text: task, assignedBy: '', startTime: '08:00', endTime: '16:00', status: 'do zrobienia' }
+        return { text: task, assignedBy: [], startTime: '08:00', endTime: '16:00', status: 'do zrobienia' }
       }
       // Konwertuj completed na status jeśli status nie istnieje
       let status = task.status
@@ -34,9 +34,18 @@ function normalizeTasks(tasks: any): Task[] {
       if (!status) {
         status = 'do zrobienia'
       }
+      // Normalizuj assignedBy - może być string (stary format) lub string[] (nowy format)
+      let assignedBy: string[] = []
+      if (task.assignedBy) {
+        if (Array.isArray(task.assignedBy)) {
+          assignedBy = task.assignedBy
+        } else if (typeof task.assignedBy === 'string' && task.assignedBy.trim()) {
+          assignedBy = [task.assignedBy]
+        }
+      }
       return {
         text: task.text || '',
-        assignedBy: task.assignedBy || '',
+        assignedBy: assignedBy,
         startTime: task.startTime || '08:00',
         endTime: task.endTime || '16:00',
         status: status,

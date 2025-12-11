@@ -1,8 +1,14 @@
 import { query } from './db'
+import { getDbConfig } from './dbConfig'
+
+// Ustaw domyślną strefę czasową na Europe/Warsaw dla Node.js
+if (typeof process !== 'undefined' && !process.env.TZ) {
+  process.env.TZ = 'Europe/Warsaw'
+}
 
 export interface Task {
   text: string
-  assignedBy: string
+  assignedBy: string[]  // Kto zlecił zadanie (może być wiele osób)
   startTime: string  // Format: HH:MM
   endTime: string    // Format: HH:MM
   completed?: boolean // Czy zadanie zostało wykonane (deprecated - użyj status)
@@ -21,7 +27,7 @@ function normalizeTasks(tasks: any): Task[] {
   if (Array.isArray(tasks)) {
     return tasks.map(task => {
       if (typeof task === 'string') {
-        return { text: task, assignedBy: '', startTime: '08:00', endTime: '16:00', status: 'do zrobienia' }
+        return { text: task, assignedBy: [], startTime: '08:00', endTime: '16:00', status: 'do zrobienia' }
       }
       // Konwertuj completed na status jeśli status nie istnieje
       let status = task.status
@@ -31,9 +37,18 @@ function normalizeTasks(tasks: any): Task[] {
       if (!status) {
         status = 'do zrobienia'
       }
+      // Normalizuj assignedBy - może być string (stary format) lub string[] (nowy format)
+      let assignedBy: string[] = []
+      if (task.assignedBy) {
+        if (Array.isArray(task.assignedBy)) {
+          assignedBy = task.assignedBy
+        } else if (typeof task.assignedBy === 'string' && task.assignedBy.trim()) {
+          assignedBy = [task.assignedBy]
+        }
+      }
       return {
         text: task.text || '',
-        assignedBy: task.assignedBy || '',
+        assignedBy: assignedBy,
         startTime: task.startTime || '08:00',
         endTime: task.endTime || '16:00',
         status: status,
@@ -46,12 +61,20 @@ function normalizeTasks(tasks: any): Task[] {
 
 // Sprawdź czy MySQL jest dostępny
 function isMySQLAvailable(): boolean {
-  return !!(process.env.DB_HOST && process.env.DB_NAME)
+  // Sprawdź zmienne środowiskowe
+  if (process.env.DB_HOST && process.env.DB_NAME) {
+    return true
+  }
+  
+  // Sprawdź plik konfiguracyjny
+  const config = getDbConfig()
+  return !!(config && config.host && config.database)
 }
 
 // Pobierz dane dla miesiąca
 export async function getMonthData(userId: number, monthKey: string, clientId: number): Promise<Record<string, DayData>> {
   if (!isMySQLAvailable()) {
+    console.log('[getMonthData] MySQL not available, returning empty object')
     return {}
   }
 
@@ -64,6 +87,8 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
     // Ostatni dzień miesiąca
     const endDate = new Date(year, month, 0).toISOString().split('T')[0]
 
+    console.log(`[getMonthData] Fetching data for userId=${userId}, clientId=${clientId}, monthKey=${monthKey}, startDate=${startDate}, endDate=${endDate}`)
+
     // Pobierz wszystkie dni pracy dla miesiąca i klienta
     const workDays = await query(
       `SELECT id, date FROM work_days 
@@ -71,16 +96,36 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
       [userId, clientId, startDate, endDate]
     ) as any[]
 
+    console.log(`[getMonthData] Found ${workDays.length} work days`)
+
     const result: Record<string, DayData> = {}
+
+    console.log(`[getMonthData] Processing ${workDays.length} work days`)
 
     for (const workDay of workDays) {
       // MySQL zwraca datę jako string lub Date object
       let dateKey: string
       if (workDay.date instanceof Date) {
-        dateKey = workDay.date.toISOString().split('T')[0]
+        // Użyj lokalnej daty zamiast UTC, aby uniknąć przesunięcia o jeden dzień
+        const year = workDay.date.getFullYear()
+        const month = String(workDay.date.getMonth() + 1).padStart(2, '0')
+        const day = String(workDay.date.getDate()).padStart(2, '0')
+        dateKey = `${year}-${month}-${day}`
       } else {
-        // Jeśli to string, użyj go bezpośrednio
-        dateKey = workDay.date.toString().substring(0, 10)
+        // Jeśli to string, użyj go bezpośrednio (usuń czas jeśli jest)
+        const dateStr = workDay.date.toString()
+        dateKey = dateStr.substring(0, 10)
+        // Upewnij się, że format jest poprawny (yyyy-MM-dd)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+          // Jeśli format jest inny, spróbuj sparsować
+          const parsed = new Date(dateStr)
+          if (!isNaN(parsed.getTime())) {
+            const year = parsed.getFullYear()
+            const month = String(parsed.getMonth() + 1).padStart(2, '0')
+            const day = String(parsed.getDate()).padStart(2, '0')
+            dateKey = `${year}-${month}-${day}`
+          }
+        }
       }
 
       // Pobierz zadania (obsługa przypadku gdy kolumny mogą nie istnieć)
@@ -131,6 +176,8 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
         }
       }
 
+      console.log(`[getMonthData] Work day ${workDay.id} (${dateKey}) has ${tasks.length} tasks`)
+
       // Oblicz całkowite godziny na podstawie zadań (union przedziałów czasowych)
       const intervals: Array<{ start: number; end: number }> = []
       
@@ -161,9 +208,28 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
           status = (t.completed === 1 || t.completed === true) ? 'wykonano' : 'do zrobienia'
         }
         
+        // Normalizuj assigned_by - może być string (stary format) lub JSON array (nowy format)
+        let assignedBy: string[] = []
+        if (t.assigned_by) {
+          try {
+            // Spróbuj sparsować jako JSON
+            const parsed = JSON.parse(t.assigned_by)
+            if (Array.isArray(parsed)) {
+              assignedBy = parsed
+            } else if (typeof parsed === 'string' && parsed.trim()) {
+              assignedBy = [parsed]
+            }
+          } catch {
+            // Jeśli nie jest JSON, traktuj jako string
+            if (typeof t.assigned_by === 'string' && t.assigned_by.trim()) {
+              assignedBy = [t.assigned_by]
+            }
+          }
+        }
+        
         return {
           text: t.description || '',
-          assignedBy: t.assigned_by || '',
+          assignedBy: assignedBy,
           startTime,
           endTime,
           status: status,
@@ -213,9 +279,17 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
       }
     }
 
+    console.log(`[getMonthData] Returning ${Object.keys(result).length} days with data`)
     return result
-  } catch (error) {
-    console.error('Error loading data from MySQL:', error)
+  } catch (error: any) {
+    console.error('[getMonthData] Error loading data from MySQL:', error)
+    console.error('[getMonthData] Error details:', {
+      userId,
+      clientId,
+      monthKey,
+      errorMessage: error.message,
+      errorStack: error.stack
+    })
     return {}
   }
 }
@@ -269,7 +343,8 @@ export async function saveMonthData(userId: number, monthKey: string, daysData: 
 
   try {
     for (const [dateKey, dayData] of Object.entries(daysData)) {
-      const date = new Date(dateKey)
+      // dateKey jest już w formacie yyyy-MM-dd, nie trzeba konwertować przez new Date()
+      // (unika problemów ze strefami czasowymi)
 
       // Sprawdź czy dzień pracy istnieje, jeśli nie - utwórz
       let workDayResult = await query(
@@ -309,26 +384,36 @@ export async function saveMonthData(userId: number, monthKey: string, daysData: 
           try {
             // Spróbuj wstawić z wszystkimi kolumnami (start_time, end_time, assigned_by, status)
             const taskStatus = taskData.status || (taskData.completed ? 'wykonano' : 'do zrobienia')
+            // Zapisz assignedBy jako JSON array
+            const assignedByJson = Array.isArray(taskData.assignedBy) && taskData.assignedBy.length > 0
+              ? JSON.stringify(taskData.assignedBy)
+              : ''
             await query(
               `INSERT INTO tasks (work_day_id, description, assigned_by, start_time, end_time, status, completed) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [workDayId, taskData.text, taskData.assignedBy || '', taskData.startTime || '08:00', taskData.endTime || '16:00', taskStatus, taskData.completed ? 1 : 0]
+              [workDayId, taskData.text, assignedByJson, taskData.startTime || '08:00', taskData.endTime || '16:00', taskStatus, taskData.completed ? 1 : 0]
             )
           } catch (error: any) {
             // Jeśli kolumna status nie istnieje, spróbuj z completed
             if (error.code === 'ER_BAD_FIELD_ERROR' && error.message?.includes('status')) {
               try {
                 const taskStatus = taskData.status || (taskData.completed ? 'wykonano' : 'do zrobienia')
+                const assignedByJson = Array.isArray(taskData.assignedBy) && taskData.assignedBy.length > 0
+                  ? JSON.stringify(taskData.assignedBy)
+                  : ''
                 await query(
                   `INSERT INTO tasks (work_day_id, description, assigned_by, start_time, end_time, completed) VALUES (?, ?, ?, ?, ?, ?)`,
-                  [workDayId, taskData.text, taskData.assignedBy || '', taskData.startTime || '08:00', taskData.endTime || '16:00', taskStatus === 'wykonano' ? 1 : 0]
+                  [workDayId, taskData.text, assignedByJson, taskData.startTime || '08:00', taskData.endTime || '16:00', taskStatus === 'wykonano' ? 1 : 0]
                 )
               } catch (innerError: any) {
                 // Jeśli kolumny start_time/end_time nie istnieją, spróbuj z assigned_by
                 if (innerError.code === 'ER_BAD_FIELD_ERROR' && (innerError.message?.includes('start_time') || innerError.message?.includes('end_time'))) {
                   try {
+                    const assignedByJson = Array.isArray(taskData.assignedBy) && taskData.assignedBy.length > 0
+                      ? JSON.stringify(taskData.assignedBy)
+                      : ''
                     await query(
                       `INSERT INTO tasks (work_day_id, description, assigned_by, completed) VALUES (?, ?, ?, ?)`,
-                      [workDayId, taskData.text, taskData.assignedBy || '', taskData.status === 'wykonano' ? 1 : 0]
+                      [workDayId, taskData.text, assignedByJson, taskData.status === 'wykonano' ? 1 : 0]
                     )
                   } catch (finalError: any) {
                     // Jeśli assigned_by też nie istnieje, wstaw tylko description
@@ -349,17 +434,23 @@ export async function saveMonthData(userId: number, monthKey: string, daysData: 
               // Jeśli kolumny start_time/end_time nie istnieją, spróbuj z assigned_by i status
               try {
                 const taskStatus = taskData.status || (taskData.completed ? 'wykonano' : 'do zrobienia')
+                const assignedByJson = Array.isArray(taskData.assignedBy) && taskData.assignedBy.length > 0
+                  ? JSON.stringify(taskData.assignedBy)
+                  : ''
                 await query(
                   `INSERT INTO tasks (work_day_id, description, assigned_by, status) VALUES (?, ?, ?, ?)`,
-                  [workDayId, taskData.text, taskData.assignedBy || '', taskStatus]
+                  [workDayId, taskData.text, assignedByJson, taskStatus]
                 )
               } catch (innerError: any) {
                 // Jeśli status też nie istnieje, spróbuj z completed
                 if (innerError.code === 'ER_BAD_FIELD_ERROR' && innerError.message?.includes('status')) {
                   try {
+                    const assignedByJson = Array.isArray(taskData.assignedBy) && taskData.assignedBy.length > 0
+                      ? JSON.stringify(taskData.assignedBy)
+                      : ''
                     await query(
                       `INSERT INTO tasks (work_day_id, description, assigned_by, completed) VALUES (?, ?, ?, ?)`,
-                      [workDayId, taskData.text, taskData.assignedBy || '', taskData.completed ? 1 : 0]
+                      [workDayId, taskData.text, assignedByJson, taskData.completed ? 1 : 0]
                     )
                   } catch (finalError: any) {
                     // Jeśli assigned_by też nie istnieje, wstaw tylko description

@@ -20,11 +20,16 @@ CREATE TABLE IF NOT EXISTS clients (
   user_id INT NOT NULL,
   name VARCHAR(255) NOT NULL,
   logo VARCHAR(500) DEFAULT '',
+  website VARCHAR(500) DEFAULT '',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Migracja: dodaj kolumnę website jeśli nie istnieje
+ALTER TABLE clients 
+ADD COLUMN IF NOT EXISTS website VARCHAR(500) DEFAULT '' AFTER logo;
 
 -- Tabela dni pracy
 CREATE TABLE IF NOT EXISTS work_days (

@@ -393,16 +393,14 @@
               "assignedBy": "Olga Chernovets",
               "startTime": "09:30",
               "endTime": "16:00",
-              "status": "wykonano",
-              "completed": false
+              "status": "wykonano"
             },
             {
               "text": "Добавление информации о Black Weekend. Zmiana logotypu. Bieżące zapytania.",
               "assignedBy": "Sergiy Kirakosian",
               "startTime": "10:40",
               "endTime": "16:35",
-              "status": "wykonano",
-              "completed": false
+              "status": "wykonano"
             }
           ],
           "totalHours": "07:05"
@@ -415,8 +413,7 @@
               "assignedBy": "Sergiy Kirakosian",
               "startTime": "09:40",
               "endTime": "13:05",
-              "status": "wykonano",
-              "completed": false
+              "status": "wykonano"
             }
           ],
           "totalHours": "03:25"
@@ -429,8 +426,7 @@
               "assignedBy": "Sergiy Kirakosian",
               "startTime": "09:30",
               "endTime": "14:45",
-              "status": "wykonano",
-              "completed": false
+              "status": "wykonano"
             }
           ],
           "totalHours": "05:15"
@@ -443,16 +439,14 @@
               "assignedBy": "Yana Raputa",
               "startTime": "09:30",
               "endTime": "11:00",
-              "status": "wykonano",
-              "completed": false
+              "status": "wykonano"
             },
             {
               "text": "Замена фото на сайте главного слайдера. Добавление фото к новым локациям магазинов.",
               "assignedBy": "Sergiy Kirakosian",
               "startTime": "09:25",
               "endTime": "13:35",
-              "status": "wykonano",
-              "completed": false
+              "status": "wykonano"
             }
           ],
           "totalHours": "04:10"
@@ -480,8 +474,7 @@
               "assignedBy": "HR Maryna",
               "startTime": "11:30",
               "endTime": "12:10",
-              "status": "wykonano",
-              "completed": false
+              "status": "wykonano"
             }
           ],
           "totalHours": "00:40"
@@ -499,40 +492,70 @@
               "assignedBy": "Yana Raputa",
               "startTime": "15:00",
               "endTime": "15:15",
-              "status": "wykonano",
-              "completed": false
+              "status": "wykonano"
             },
             {
               "text": "Выяснение проблемы с формой отправки CV. Рефакторий кода, выпуск новой версии плагина EFPP.",
               "assignedBy": "HR Maryna",
               "startTime": "12:30",
               "endTime": "16:00",
-              "status": "wykonano",
-              "completed": false
+              "status": "wykonano"
             },
             {
               "text": "Добавление новых вакансий на сайт best-market.pl",
               "assignedBy": "HR Maryna",
               "startTime": "20:00",
               "endTime": "22:40",
-              "status": "do zrobienia",
-              "completed": false
+              "status": "do zrobienia"
             },
             {
               "text": "Запрос о созвоне",
               "assignedBy": "Sergiy Kirakosian",
               "startTime": "13:40",
               "endTime": "14:00",
-              "status": "wykonano",
-              "completed": false
+              "status": "wykonano"
             }
           ],
           "totalHours": "06:10"
         },
         "2025-12-11": {
           "date": "2025-12-11",
-          "tasks": [],
-          "totalHours": "00:00"
+          "tasks": [
+            {
+              "text": "Проверка списка проблмых товаров на наличие фото",
+              "assignedBy": "Alona Prokhoda",
+              "startTime": "08:20",
+              "endTime": "10:00",
+              "status": "wykonano"
+            },
+            {
+              "text": "Изменение логики и URL логина на foodex24.pl",
+              "assignedBy": "Alex Shram",
+              "startTime": "10:00",
+              "endTime": "11:00",
+              "status": "wykonano"
+            },
+            {
+              "text": "Meet",
+              "assignedBy": [
+                "Yana Raputa",
+                "Sergiy Kirakosian"
+              ],
+              "startTime": "16:30",
+              "endTime": "17:30",
+              "status": "zaplanowano"
+            },
+            {
+              "text": "Dodanie nowej oferty pracy do Szczecin",
+              "assignedBy": [
+                "HR Maryna"
+              ],
+              "startTime": "11:00",
+              "endTime": "12:00",
+              "status": "do zrobienia"
+            }
+          ],
+          "totalHours": "04:40"
         },
         "2025-12-12": {
           "date": "2025-12-12",
@@ -634,8 +657,7 @@
           "tasks": [],
           "totalHours": "00:00"
         }
-      },
-      "1765406243586": {}
+      }
     }
   }
 }

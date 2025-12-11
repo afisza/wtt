@@ -36,3 +36,6 @@ SELECT
 FROM work_days
 WHERE client_id IS NULL;
 
+
+
+

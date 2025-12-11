@@ -25,6 +25,16 @@ input[type="time"] {
   margin: 0;
 }
 
+/* Animacja dla preloadera */
+@keyframes spin-loader {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 :root {
   --accent: #d22f27;
   --background: #141414;
@@ -75,6 +85,19 @@ input:focus, textarea:focus {
   outline: none;
   ring: 1px;
   ring-color: var(--accent);
+}
+
+/* Placeholder styles for dark theme */
+input::placeholder,
+textarea::placeholder {
+  color: #888;
+  opacity: 0.7;
+}
+
+input[style*="background: #1a1a1a"]::placeholder,
+input[style*="background:#1a1a1a"]::placeholder {
+  color: #666;
+  opacity: 0.8;
 }
 
 /* Modern scrollbar */

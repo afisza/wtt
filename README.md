@@ -36,6 +36,9 @@ npm install
    ```env
    JWT_SECRET=your-secret-key-change-in-production
    
+   # Strefa czasowa (domyślnie Warszawa, Polska)
+   TZ=Europe/Warsaw
+   
    DB_HOST=localhost
    DB_PORT=3306
    DB_USER=root

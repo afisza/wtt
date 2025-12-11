@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "TZ=Europe/Warsaw next dev",
+    "build": "TZ=Europe/Warsaw next build",
+    "start": "TZ=Europe/Warsaw next start",
     "lint": "next lint"
   },
   "dependencies": {
