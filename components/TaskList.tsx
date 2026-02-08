@@ -359,7 +359,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     flex: 1,
                     padding: '3px 6px',
                     fontSize: '13px',
-                    background: '#1f1f1f',
+                    background: 'var(--app-card-alt)',
                     color: 'var(--app-text)',
                     border: '1px solid var(--app-accent)',
                     borderRadius: '3px',
