@@ -31,12 +31,13 @@ const renderTextWithLinks = (text: string) => {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        style={{ color: '#d22f27', textDecoration: 'underline', cursor: 'pointer', wordBreak: 'break-all' }}
+        style={{ color: 'var(--app-accent)', textDecoration: 'underline', cursor: 'pointer', wordBreak: 'break-all' }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.color = '#b0251f'
+          e.currentTarget.style.opacity = '0.85'
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.color = '#d22f27'
+          e.currentTarget.style.color = 'var(--app-accent)'
+          e.currentTarget.style.opacity = '1'
         }}
       >
         {match[0]}
@@ -287,7 +288,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
       {tasks.length === 0 && !showAddForm && (
-        <div style={{ fontSize: '13px', color: '#888', padding: '4px 0' }}>-</div>
+        <div style={{ fontSize: '13px', color: 'var(--app-text-muted)', padding: '4px 0' }}>-</div>
       )}
       {sortedTasks.map((task, index) => {
         // Znajdź oryginalny indeks zadania w nieposortowanej tablicy
@@ -313,9 +314,9 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
               gap: '4px', 
               alignItems: 'center', 
               padding: '3px', 
-              background: '#1a1a1a', 
+              background: 'var(--app-card-alt)', 
               borderRadius: '3px', 
-              border: '1px solid #2a2a2a', 
+              border: '1px solid var(--app-border)', 
               marginBottom: index < sortedTasks.length - 1 ? '2px' : '0px', 
               minHeight: '22px',
               cursor: onDragStart ? 'grab' : 'default',
@@ -334,7 +335,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
             }}
           >
             {/* Numer zadania */}
-            <div style={{ minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#d22f27', color: '#ffffff', borderRadius: '2px', fontSize: '10px', fontWeight: '600', flexShrink: 0 }}>
+            <div style={{ minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--app-accent)', color: 'var(--app-accent-foreground)', borderRadius: '2px', fontSize: '10px', fontWeight: '600', flexShrink: 0, alignSelf: 'flex-start', marginRight: '8px' }}>
               {taskNumber}
             </div>
 
@@ -358,8 +359,8 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     padding: '3px 6px',
                     fontSize: '13px',
                     background: '#1f1f1f',
-                    color: '#ffffff',
-                    border: '1px solid #d22f27',
+                    color: 'var(--app-text)',
+                    border: '1px solid var(--app-accent)',
                     borderRadius: '3px',
                     outline: 'none'
                   }}
@@ -389,20 +390,20 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                   style={{ 
                     width: '100%', 
                     padding: '4px 6px', 
-                    border: '1px solid #d22f27', 
+                    border: '1px solid var(--app-accent)', 
                     borderRadius: '3px', 
                     fontSize: '13px',
                     minHeight: '35px',
                     resize: 'vertical',
-                    background: '#1a1a1a',
-                    color: '#ffffff',
+                    background: 'var(--app-card-alt)',
+                    color: 'var(--app-text)',
                     fontFamily: 'inherit',
                     outline: 'none'
                   }}
                 />
                 <div style={{ display: 'flex', gap: '4px' }}>
                   <div style={{ flex: 1 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#888', marginBottom: '2px', fontWeight: '600' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--app-text-muted)', marginBottom: '2px', fontWeight: '600' }}>
                       <Clock size={10} color="#888" />
                       Czas OD
                     </label>
@@ -414,11 +415,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                         style={{ 
                           width: '100%', 
                           padding: '3px 6px 3px 24px', 
-                          border: '1px solid #d22f27', 
+                          border: '1px solid var(--app-accent)', 
                           borderRadius: '3px', 
                           fontSize: '11px',
-                          background: '#1a1a1a',
-                          color: '#ffffff',
+                          background: 'var(--app-card-alt)',
+                          color: 'var(--app-text)',
                           fontFamily: 'inherit',
                           outline: 'none'
                         }}
@@ -429,7 +430,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     </div>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#888', marginBottom: '2px', fontWeight: '600' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--app-text-muted)', marginBottom: '2px', fontWeight: '600' }}>
                       <Clock size={10} color="#888" />
                       Czas DO
                     </label>
@@ -441,11 +442,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                         style={{ 
                           width: '100%', 
                           padding: '3px 6px 3px 24px', 
-                          border: '1px solid #d22f27', 
+                          border: '1px solid var(--app-accent)', 
                           borderRadius: '3px', 
                           fontSize: '11px',
-                          background: '#1a1a1a',
-                          color: '#ffffff',
+                          background: 'var(--app-card-alt)',
+                          color: 'var(--app-text)',
                           fontFamily: 'inherit',
                           outline: 'none'
                         }}
@@ -462,11 +463,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                       style={{
                         width: '100%',
                         padding: '4px 6px',
-                        border: '1px solid #d22f27',
+                        border: '1px solid var(--app-accent)',
                         borderRadius: '3px',
                         fontSize: '13px',
-                        background: '#1a1a1a',
-                        color: '#ffffff',
+                        background: 'var(--app-card-alt)',
+                        color: 'var(--app-text)',
                         display: 'flex',
                         flexWrap: 'wrap',
                         gap: '4px',
@@ -484,7 +485,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                               alignItems: 'center',
                               gap: '4px',
                               padding: '2px 6px',
-                              background: '#2a2a2a',
+                              background: 'var(--app-card)',
                               borderRadius: '12px',
                               fontSize: '11px'
                             }}
@@ -501,7 +502,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                                 }}
                               />
                             ) : (
-                              <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '600' }}>
+                              <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'var(--app-accent)', color: 'var(--app-accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '600' }}>
                                 {name.charAt(0).toUpperCase()}
                               </div>
                             )}
@@ -518,7 +519,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                color: '#888',
+                                color: 'var(--app-text-muted)',
                                 marginLeft: '2px'
                               }}
                               onMouseEnter={(e) => {
@@ -558,11 +559,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     style={{
                       width: '100%',
                       padding: '6px 10px',
-                      border: '1px solid #d22f27',
+                      border: '1px solid var(--app-accent)',
                       borderRadius: '3px',
                       fontSize: '13px',
-                      background: '#1a1a1a',
-                      color: '#ffffff',
+                      background: 'var(--app-card-alt)',
+                      color: 'var(--app-text)',
                       outline: 'none'
                     }}
                     autoFocus
@@ -574,8 +575,8 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                         top: '100%',
                         left: 0,
                         right: 0,
-                        background: '#1a1a1a',
-                        border: '1px solid #2a2a2a',
+                        background: 'var(--app-card-alt)',
+                        border: '1px solid var(--app-border)',
                         borderRadius: '3px',
                         marginTop: '4px',
                         maxHeight: '200px',
@@ -585,7 +586,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                       }}
                     >
                       {getFilteredAssigners(editingAssignerSearchQuery[editingIndex] || '').length === 0 ? (
-                        <div style={{ padding: '8px 12px', color: '#888', fontSize: '12px' }}>
+                        <div style={{ padding: '8px 12px', color: 'var(--app-text-muted)', fontSize: '12px' }}>
                           Brak wyników
                         </div>
                       ) : (
@@ -608,10 +609,10 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                borderBottom: '1px solid #2a2a2a'
+                                borderBottom: '1px solid var(--app-border)'
                               }}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#2a2a2a'
+                                e.currentTarget.style.background = 'var(--app-card)'
                               }}
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.background = 'transparent'
@@ -629,11 +630,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                                   }}
                                 />
                               ) : (
-                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600', color: 'white' }}>
+                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--app-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600', color: 'var(--app-accent-foreground)' }}>
                                   {assigner.name.charAt(0).toUpperCase()}
                                 </div>
                               )}
-                              <span style={{ fontSize: '13px', color: '#ffffff' }}>{assigner.name}</span>
+                              <span style={{ fontSize: '13px', color: 'var(--app-text)' }}>{assigner.name}</span>
                             </div>
                           ))
                       )}
@@ -646,18 +647,18 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                   style={{ 
                     width: '100%', 
                     padding: '3px 6px', 
-                    border: '1px solid #d22f27', 
+                    border: '1px solid var(--app-accent)', 
                     borderRadius: '3px', 
                     fontSize: '13px',
-                    background: '#1a1a1a',
-                    color: '#ffffff',
+                    background: 'var(--app-card-alt)',
+                    color: 'var(--app-text)',
                     fontFamily: 'inherit',
                     outline: 'none',
                     cursor: 'pointer'
                   }}
                 >
                   {statusOptions.map(status => (
-                    <option key={status} value={status} style={{ background: '#1a1a1a' }}>{status}</option>
+                    <option key={status} value={status} style={{ background: 'var(--app-card-alt)', color: 'var(--app-text)' }}>{status}</option>
                   ))}
                 </select>
                 <div style={{ display: 'flex', gap: '4px' }}>
@@ -671,7 +672,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                       gap: '4px',
                       padding: '4px 8px',
                       background: '#10B981',
-                      color: '#ffffff',
+                      color: 'white',
                       border: 'none',
                       borderRadius: '3px',
                       fontSize: '11px',
@@ -706,7 +707,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                       gap: '4px',
                       padding: '4px 8px',
                       background: '#EF4444',
-                      color: '#ffffff',
+                      color: 'white',
                       border: 'none',
                       borderRadius: '3px',
                       fontSize: '11px',
@@ -733,10 +734,10 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                   onClick={() => handleInlineEdit(task)}
                   title="Kliknij aby edytować"
                 >
-                  <div style={{ fontSize: '13px', color: '#ffffff', wordBreak: 'break-word', lineHeight: '1.3', marginBottom: '2px' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--app-text)', wordBreak: 'break-word', lineHeight: '1.3', marginBottom: '2px' }}>
                     {renderTextWithLinks(task.text)}
                   </div>
-                  <div style={{ fontSize: '10px', color: '#888', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--app-text-muted)', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '3px' }}>
                     <Clock size={11} color="#888" />
                     {task.startTime || '08:00'} - {task.endTime || '16:00'}
                   </div>
@@ -750,7 +751,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     style={{ padding: '2px', color: '#d22f27', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                     title="Edytuj szczegóły"
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#2a2a2a'
+                      e.currentTarget.style.background = 'var(--app-card)'
                       e.currentTarget.style.borderRadius = '2px'
                     }}
                     onMouseLeave={(e) => {
@@ -767,7 +768,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     style={{ padding: '2px', color: '#EF4444', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                     title="Usuń"
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#2a2a2a'
+                      e.currentTarget.style.background = 'var(--app-card)'
                       e.currentTarget.style.borderRadius = '2px'
                     }}
                     onMouseLeave={(e) => {
@@ -795,7 +796,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                   borderRadius: '50%',
                   background: 'transparent',
                   color: '#d22f27',
-                  border: '1px solid #d22f27',
+                  border: '1px solid var(--app-accent)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -811,7 +812,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = '#d22f27'
+                  e.currentTarget.style.color = 'var(--app-accent)'
                   e.currentTarget.style.transform = 'scale(1)'
                 }}
                 title="Dodaj zadanie"
@@ -820,7 +821,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px', background: '#1a1a1a', borderRadius: '3px', border: '1px dashed #2a2a2a', marginTop: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px', background: 'var(--app-card-alt)', borderRadius: '3px', border: '1px dashed var(--app-border)', marginTop: '4px' }}>
               <textarea
                 value={newTask}
                 onChange={(e) => setNewTask(e.target.value)}
@@ -833,13 +834,13 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                 style={{ 
                   width: '100%', 
                   padding: '4px 6px', 
-                  border: '1px solid #2a2a2a', 
+                  border: '1px solid var(--app-border)', 
                   borderRadius: '3px', 
                   fontSize: '13px',
                   minHeight: '40px',
                   resize: 'vertical',
-                  background: '#1a1a1a',
-                  color: '#ffffff',
+                  background: 'var(--app-card-alt)',
+                  color: 'var(--app-text)',
                   fontFamily: 'inherit',
                   outline: 'none'
                 }}
@@ -847,7 +848,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
               />
               <div style={{ display: 'flex', gap: '4px' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#888', marginBottom: '2px', fontWeight: '600' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--app-text-muted)', marginBottom: '2px', fontWeight: '600' }}>
                     <Clock size={10} color="#888" />
                     Czas OD
                   </label>
@@ -859,11 +860,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                       style={{ 
                         width: '100%', 
                         padding: '3px 6px 3px 24px', 
-                        border: '1px solid #2a2a2a', 
+                        border: '1px solid var(--app-border)', 
                         borderRadius: '3px', 
                         fontSize: '11px',
-                        background: '#1a1a1a',
-                        color: '#ffffff',
+                        background: 'var(--app-card-alt)',
+                        color: 'var(--app-text)',
                         fontFamily: 'inherit',
                         outline: 'none'
                       }}
@@ -874,7 +875,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                   </div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#888', marginBottom: '2px', fontWeight: '600' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--app-text-muted)', marginBottom: '2px', fontWeight: '600' }}>
                     <Clock size={10} color="#888" />
                     Czas DO
                   </label>
@@ -886,11 +887,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                       style={{ 
                         width: '100%', 
                         padding: '3px 6px 3px 24px', 
-                        border: '1px solid #2a2a2a', 
+                        border: '1px solid var(--app-border)', 
                         borderRadius: '3px', 
                         fontSize: '11px',
-                        background: '#1a1a1a',
-                        color: '#ffffff',
+                        background: 'var(--app-card-alt)',
+                        color: 'var(--app-text)',
                         fontFamily: 'inherit',
                         outline: 'none'
                       }}
@@ -907,11 +908,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     style={{
                       width: '100%',
                       padding: '4px 6px',
-                      border: '1px solid #2a2a2a',
+                      border: '1px solid var(--app-border)',
                       borderRadius: '3px',
                       fontSize: '13px',
-                      background: '#1a1a1a',
-                      color: '#ffffff',
+                      background: 'var(--app-card-alt)',
+                      color: 'var(--app-text)',
                       display: 'flex',
                       flexWrap: 'wrap',
                       gap: '4px',
@@ -929,7 +930,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                             alignItems: 'center',
                             gap: '4px',
                             padding: '2px 6px',
-                            background: '#2a2a2a',
+                            background: 'var(--app-card)',
                             borderRadius: '12px',
                             fontSize: '11px'
                           }}
@@ -946,7 +947,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                               }}
                             />
                           ) : (
-                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '600' }}>
+                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'var(--app-accent)', color: 'var(--app-accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '600' }}>
                               {name.charAt(0).toUpperCase()}
                             </div>
                           )}
@@ -963,7 +964,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              color: '#888',
+                              color: 'var(--app-text-muted)',
                               marginLeft: '2px'
                             }}
                             onMouseEnter={(e) => {
@@ -1003,11 +1004,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                   style={{
                     width: '100%',
                     padding: '6px 10px',
-                    border: '1px solid #2a2a2a',
+                    border: '1px solid var(--app-border)',
                     borderRadius: '3px',
                     fontSize: '13px',
-                    background: '#1a1a1a',
-                    color: '#ffffff',
+                    background: 'var(--app-card-alt)',
+                    color: 'var(--app-text)',
                     outline: 'none'
                   }}
                   autoFocus
@@ -1019,8 +1020,8 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                       top: '100%',
                       left: 0,
                       right: 0,
-                      background: '#1a1a1a',
-                      border: '1px solid #2a2a2a',
+                      background: 'var(--app-card-alt)',
+                      border: '1px solid var(--app-border)',
                       borderRadius: '3px',
                       marginTop: '4px',
                       maxHeight: '200px',
@@ -1030,7 +1031,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     }}
                   >
                     {getFilteredAssigners(assignerSearchQuery).length === 0 ? (
-                      <div style={{ padding: '8px 12px', color: '#888', fontSize: '12px' }}>
+                      <div style={{ padding: '8px 12px', color: 'var(--app-text-muted)', fontSize: '12px' }}>
                         Brak wyników
                       </div>
                     ) : (
@@ -1053,10 +1054,10 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                               display: 'flex',
                               alignItems: 'center',
                               gap: '8px',
-                              borderBottom: '1px solid #2a2a2a'
+                              borderBottom: '1px solid var(--app-border)'
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#2a2a2a'
+                              e.currentTarget.style.background = 'var(--app-card)'
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.background = 'transparent'
@@ -1074,11 +1075,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                                 }}
                               />
                             ) : (
-                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#d22f27', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600', color: 'white' }}>
+                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--app-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '600', color: 'var(--app-accent-foreground)' }}>
                                 {assigner.name.charAt(0).toUpperCase()}
                               </div>
                             )}
-                            <span style={{ fontSize: '13px', color: '#ffffff' }}>{assigner.name}</span>
+                            <span style={{ fontSize: '13px', color: 'var(--app-text)' }}>{assigner.name}</span>
                           </div>
                         ))
                     )}
@@ -1091,18 +1092,18 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                 style={{ 
                   width: '100%', 
                   padding: '3px 6px', 
-                  border: '1px solid #2a2a2a', 
+                  border: '1px solid var(--app-border)', 
                   borderRadius: '3px', 
                   fontSize: '13px',
-                  background: '#1a1a1a',
-                  color: '#ffffff',
+                  background: 'var(--app-card-alt)',
+                  color: 'var(--app-text)',
                   fontFamily: 'inherit',
                   outline: 'none',
                   cursor: 'pointer'
                 }}
               >
                 {statusOptions.map(status => (
-                  <option key={status} value={status} style={{ background: '#1a1a1a', color: '#ffffff' }}>{status}</option>
+                  <option key={status} value={status} style={{ background: 'var(--app-card-alt)', color: 'var(--app-text)' }}>{status}</option>
                 ))}
               </select>
               <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
@@ -1115,8 +1116,8 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     justifyContent: 'center',
                     gap: '4px',
                     padding: '4px 8px',
-                    background: '#d22f27',
-                    color: '#ffffff',
+                    background: 'var(--app-accent)',
+                    color: 'var(--app-accent-foreground)',
                     border: 'none',
                     borderRadius: '3px',
                       fontSize: '11px',
@@ -1144,7 +1145,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                       gap: '4px',
                       padding: '4px 8px',
                       background: '#EF4444',
-                      color: '#ffffff',
+                      color: 'white',
                       border: 'none',
                       borderRadius: '3px',
                       fontSize: '11px',

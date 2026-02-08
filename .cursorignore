@@ -1,0 +1,43 @@
+# Dependencies and build output (no need to index)
+node_modules/
+.next/
+out/
+build/
+.pnp
+.pnp.js
+
+# Git
+.git/
+
+# Local env and secrets
+.env
+.env.*
+!.env.example
+
+# Local/sensitive data
+data/db-config.json
+data/db-config.json.backup
+data/storage-mode.json
+data/work-time.json
+data/assigners.json
+data/clients.json
+
+# Uploaded binaries (avatars)
+public/avatars/*.png
+public/avatars/*.jpg
+public/avatars/*.jpeg
+public/avatars/*.svg
+
+# Logs and debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS and IDE
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+
+# Lockfile (large, rarely need to index)
+package-lock.json

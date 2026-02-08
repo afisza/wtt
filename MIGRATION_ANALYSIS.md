@@ -163,3 +163,4 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
 - [ ] Uruchomić migrację ponownie
 - [ ] Sprawdzić czy wszystkie 41 zadań zostało zmigrowanych
 - [ ] Sprawdzić czy kolumna `assigned_by` jest VARCHAR(500)
+

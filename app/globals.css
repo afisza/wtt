@@ -35,12 +35,79 @@ input[type="time"] {
   }
 }
 
-:root {
-  --accent: #d22f27;
-  --background: #141414;
-  --text-white: #ffffff;
-  --text-gray: #888888;
-  --border: #2a2a2a;
+@layer base {
+  /* Light theme (domyślny) */
+  :root {
+    --accent: #d22f27;
+    --accent-hex: #d22f27;
+    --text-white: #1f2937;
+    --text-gray: #6b7280;
+    --app-bg: #f9fafb;
+    --app-card: #ffffff;
+    --app-card-alt: #f3f4f6;
+    --app-border: #e5e7eb;
+    --app-text: #1f2937;
+    --app-text-muted: #6b7280;
+    --app-accent: #d22f27;
+    --app-accent-foreground: #ffffff;
+    /* shadcn/ui */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 355 78% 48%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent_shadcn: 355 78% 48%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 355 78% 48%;
+    --radius: 0.5rem;
+  }
+
+  /* Dark theme (klasa .dark na <html>) */
+  .dark {
+    --accent: #d22f27;
+    --accent-hex: #d22f27;
+    --text-white: #ffffff;
+    --text-gray: #888888;
+    --app-bg: #141414;
+    --app-card: #1a1a1a;
+    --app-card-alt: #1a1a1a;
+    --app-border: #2a2a2a;
+    --app-text: #ffffff;
+    --app-text-muted: #888888;
+    --app-accent: #d22f27;
+    --app-accent-foreground: #ffffff;
+    /* shadcn/ui */
+    --background: 0 0% 7%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 355 78% 48%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 64%;
+    --accent_shadcn: 355 78% 48%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 355 78% 48%;
+  }
 }
 
 html,
@@ -53,9 +120,10 @@ body {
 }
 
 body {
-  color: var(--text-white);
-  background: var(--background);
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
   line-height: 1.4;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 a {
@@ -87,16 +155,10 @@ input:focus, textarea:focus {
   ring-color: var(--accent);
 }
 
-/* Placeholder styles for dark theme */
+/* Placeholder – kolory z motywu */
 input::placeholder,
 textarea::placeholder {
-  color: #888;
-  opacity: 0.7;
-}
-
-input[style*="background: #1a1a1a"]::placeholder,
-input[style*="background:#1a1a1a"]::placeholder {
-  color: #666;
+  color: hsl(var(--muted-foreground));
   opacity: 0.8;
 }
 
@@ -107,11 +169,11 @@ input[style*="background:#1a1a1a"]::placeholder {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: hsl(var(--background));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: hsl(var(--border));
   border-radius: 3px;
 }
 
@@ -139,6 +201,25 @@ input[style*="background:#1a1a1a"]::placeholder {
   to {
     transform: translateX(100%);
     opacity: 0;
+  }
+}
+
+/* Animacja podświetlenia dla wyników wyszukiwania */
+.search-highlight {
+  animation: searchHighlight 0.5s ease-in-out;
+}
+
+@keyframes searchHighlight {
+  0% {
+    background: color-mix(in srgb, var(--app-accent) 15%, var(--app-card));
+    box-shadow: 0 0 0 0 rgba(210, 47, 39, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(210, 47, 39, 0);
+  }
+  100% {
+    background: color-mix(in srgb, var(--app-accent) 15%, var(--app-card));
+    box-shadow: 0 0 0 0 rgba(210, 47, 39, 0);
   }
 }
 

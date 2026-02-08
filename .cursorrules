@@ -1,0 +1,26 @@
+# Work Time Tracker – Cursor rules
+
+## Stack
+- Next.js 14 (App Router), React 18, TypeScript
+- Styling: Tailwind CSS
+- Backend: API Routes (app/api/), MySQL (lib/db.ts, mysql2)
+- Auth: JWT (jsonwebtoken), cookies (js-cookie)
+
+## Konwencje
+- Komentarze i nazwy zmiennych mogą być po polsku.
+- Baza danych: konfiguracja przez zmienne środowiskowe (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME) lub plik data/db-config.json (dev). Hasła i dane wrażliwe tylko w .env, nigdy w repo.
+- API: route handlers w app/api/*/route.ts; odpowiedzi JSON; błędy zwracać z odpowiednim statusem (401, 403, 500).
+
+## Struktura
+- app/ – strony i API (App Router)
+- components/ – komponenty React
+- contexts/ – React context (Theme, Toast)
+- lib/ – db.ts (pool MySQL), dbConfig.ts, workTimeDb.ts, workTimeJson.ts
+- database/ – skrypty SQL (schema, migracje)
+- data/ – pliki JSON tylko lokalnie (nie commituj db-config, work-time, assigners, clients)
+- public/ – statyczne pliki; avatars/ na uploady (nie commituj zawartości)
+
+## Praca z kodem
+- Nowe API routes: wzoruj na istniejących w app/api/; używać getDbPool() z lib/db.ts.
+- Nowe komponenty: TypeScript, funkcjonalne + hooks; style przez Tailwind.
+- Nie commituj .env, data/db-config.json ani plików z hasłami/danymi użytkowników.

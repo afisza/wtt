@@ -122,10 +122,10 @@ export default function Home() {
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '100vh',
-        background: '#141414'
+        background: 'var(--app-bg)'
       }}>
         <div style={{
-          color: '#d22f27',
+          color: 'var(--app-accent)',
           fontSize: '14px',
           fontWeight: '500'
         }}>
@@ -140,9 +140,9 @@ export default function Home() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#141414', transition: 'background-color 0.3s ease' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--app-bg)' }}>
       {/* Header */}
-      <header style={{ background: '#141414', borderBottom: '1px solid #2a2a2a', padding: '8px 12px', marginBottom: '12px' }}>
+      <header style={{ background: 'var(--app-bg)', borderBottom: '1px solid var(--app-border)', padding: '8px 12px', marginBottom: '12px' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <img 
@@ -155,7 +155,7 @@ export default function Home() {
                 objectFit: 'contain'
               }} 
             />
-            <h1 style={{ fontSize: '14px', fontWeight: '600', color: '#ffffff' }}>
+            <h1 style={{ fontSize: '14px', fontWeight: '600', color: 'var(--app-text)' }}>
               Afisza Time Tracker
             </h1>
           </div>
@@ -165,8 +165,8 @@ export default function Home() {
               style={{ 
                 padding: '4px 8px', 
                 background: 'transparent',
-                color: '#d22f27',
-                border: '1px solid #d22f27',
+                color: 'var(--app-accent)',
+                border: '1px solid var(--app-accent)',
                 borderRadius: '3px',
                 fontSize: '13px',
                 fontWeight: '500',
@@ -177,12 +177,12 @@ export default function Home() {
                 display: 'inline-block'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#d22f27'
-                e.currentTarget.style.color = '#ffffff'
+                e.currentTarget.style.background = 'var(--app-accent)'
+                e.currentTarget.style.color = 'var(--app-accent-foreground)'
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = '#d22f27'
+                e.currentTarget.style.color = 'var(--app-accent)'
               }}
             >
               Ustawienia
@@ -191,8 +191,8 @@ export default function Home() {
               onClick={handleLogout}
               style={{ 
                 padding: '4px 8px', 
-                background: '#d22f27',
-                color: '#ffffff',
+                background: 'var(--app-accent)',
+                color: 'var(--app-accent-foreground)',
                 border: 'none',
                 borderRadius: '3px',
                 fontSize: '13px',
@@ -202,10 +202,10 @@ export default function Home() {
                 whiteSpace: 'nowrap'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#b0251f'
+                e.currentTarget.style.filter = 'brightness(0.9)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#d22f27'
+                e.currentTarget.style.filter = 'none'
               }}
             >
               Wyloguj

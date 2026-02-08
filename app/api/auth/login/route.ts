@@ -65,59 +65,18 @@ export async function POST(request: NextRequest) {
         
         console.log('Login API - Cookie set in response:', token ? 'yes' : 'no')
         return response
-      } else {
-        // Fallback do prostego sprawdzenia (dla JSON)
-        if (email === 'admin@wtt.pl' && password === 'admin123') {
-          const token = jwt.sign(
-            { userId: 1, email },
-            process.env.JWT_SECRET || 'your-secret-key-change-in-production',
-            { expiresIn: '7d' }
-          )
-
-          // Zapisz token w cookie przez Next.js Response
-          const response = NextResponse.json({ token, success: true })
-          response.cookies.set('auth_token', token, {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: 60 * 60 * 24 * 7 // 7 dni
-          })
-          
-          return response
-        }
-
-        return NextResponse.json(
-          { error: 'Nieprawidłowy email lub hasło' },
-          { status: 401 }
-        )
       }
+
+      // Brak konfiguracji MySQL – logowanie tylko z bazy
+      return NextResponse.json(
+        { error: 'Logowanie wymaga skonfigurowanej bazy danych MySQL. Skonfiguruj ją w ustawieniach aplikacji.' },
+        { status: 503 }
+      )
     } catch (dbError) {
       console.error('Database error:', dbError)
-      // Fallback do prostego sprawdzenia jeśli baza nie działa
-      if (email === 'admin@wtt.pl' && password === 'admin123') {
-        const token = jwt.sign(
-          { userId: 1, email },
-          process.env.JWT_SECRET || 'your-secret-key-change-in-production',
-          { expiresIn: '7d' }
-        )
-
-        // Zapisz token w cookie przez Next.js Response
-        const response = NextResponse.json({ token, success: true })
-        response.cookies.set('auth_token', token, {
-          httpOnly: false,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          path: '/',
-          maxAge: 60 * 60 * 24 * 7 // 7 dni
-        })
-        
-        return response
-      }
-
       return NextResponse.json(
-        { error: 'Nieprawidłowy email lub hasło' },
-        { status: 401 }
+        { error: 'Błąd połączenia z bazą danych. Sprawdź konfigurację MySQL.' },
+        { status: 503 }
       )
     }
   } catch (error) {

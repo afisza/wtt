@@ -21,9 +21,10 @@ interface CalendarTableProps {
   clientId: number | null
   clientName?: string
   clientLogo?: string
+  highlightDate?: string | null
 }
 
-export default function CalendarTable({ clientId, clientName, clientLogo }: CalendarTableProps) {
+export default function CalendarTable({ clientId, clientName, clientLogo, highlightDate }: CalendarTableProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [daysData, setDaysData] = useState<Record<string, DayData>>({})
   const [loading, setLoading] = useState(true)
@@ -797,18 +798,18 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
         justifyContent: 'center',
         padding: '60px 20px',
         minHeight: '400px',
-        background: isDark ? '#141414' : '#ffffff',
+        background: 'var(--app-bg)',
       }}>
         <Loader2 
           size={48} 
           style={{
-            color: '#d22f27',
+            color: 'var(--app-accent)',
             animation: 'spin-loader 1s linear infinite',
           }}
         />
         <div style={{
           marginTop: '20px',
-          color: isDark ? '#888' : '#666',
+          color: 'var(--app-text-muted)',
           fontSize: '14px',
           fontWeight: '500',
         }}>
@@ -824,14 +825,14 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
   return (
     <div>
       {/* Month Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', background: '#141414', padding: '6px 10px', border: '1px solid #2a2a2a', flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', background: 'var(--app-bg)', padding: '6px 10px', border: '1px solid var(--app-border)', flexWrap: 'wrap', gap: '8px' }}>
         <button
           onClick={() => changeMonth(-1)}
           style={{ 
             padding: '4px 10px', 
             background: 'transparent',
-            color: '#d22f27',
-            border: '1px solid #d22f27',
+            color: 'var(--app-accent)',
+            border: '1px solid var(--app-accent)',
             borderRadius: '3px',
             fontSize: '13px',
             fontWeight: '500',
@@ -843,17 +844,17 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
             whiteSpace: 'nowrap'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#d22f27'
-            e.currentTarget.style.color = '#ffffff'
+            e.currentTarget.style.background = 'var(--app-accent)'
+            e.currentTarget.style.color = 'var(--app-accent-foreground)'
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = '#d22f27'
+            e.currentTarget.style.color = 'var(--app-accent)'
           }}
         >
           <span style={{ display: isMobile ? 'none' : 'inline' }}>← </span>Poprzedni
         </button>
-        <h2 style={{ fontSize: '14px', fontWeight: '600', color: '#ffffff', textAlign: 'center', flex: 1, minWidth: '160px' }}>
+        <h2 style={{ fontSize: '14px', fontWeight: '600', color: 'var(--app-text)', textAlign: 'center', flex: 1, minWidth: '160px' }}>
           {(() => {
             const monthNameRaw = format(currentMonth, 'MMMM yyyy', { locale: pl })
             const monthMap: Record<string, string> = {
@@ -884,8 +885,8 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
           style={{ 
             padding: '4px 10px', 
             background: 'transparent',
-            color: '#d22f27',
-            border: '1px solid #d22f27',
+            color: 'var(--app-accent)',
+            border: '1px solid var(--app-accent)',
             borderRadius: '3px',
             fontSize: '13px',
             fontWeight: '500',
@@ -897,12 +898,12 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
             whiteSpace: 'nowrap'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#d22f27'
-            e.currentTarget.style.color = '#ffffff'
+            e.currentTarget.style.background = 'var(--app-accent)'
+            e.currentTarget.style.color = 'var(--app-accent-foreground)'
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = '#d22f27'
+            e.currentTarget.style.color = 'var(--app-accent)'
           }}
         >
           Następny<span style={{ display: isMobile ? 'none' : 'inline' }}> →</span>
@@ -910,15 +911,15 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
       </div>
 
       {/* Calendar Table */}
-      <div style={{ overflowX: 'auto', background: '#141414', border: '1px solid #2a2a2a' }}>
+      <div style={{ overflowX: 'auto', background: 'var(--app-bg)', border: '1px solid var(--app-border)' }}>
         <table style={{ minWidth: isMobile ? '100%' : '900px', width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              <th style={{ width: '90px', fontSize: '13px', padding: '6px 8px', background: '#d22f27', color: '#ffffff', fontWeight: '600', textAlign: 'left' }}>Dzień</th>
-              <th style={{ width: '70px', fontSize: '13px', padding: '6px 8px', background: '#d22f27', color: '#ffffff', fontWeight: '600', textAlign: 'center' }}>Godziny</th>
-              <th style={{ width: '120px', fontSize: '13px', padding: '6px 8px', background: '#d22f27', color: '#ffffff', fontWeight: '600', textAlign: 'left' }}>Kto zlecił</th>
-              <th style={{ minWidth: '300px', fontSize: '13px', padding: '6px 8px', background: '#d22f27', color: '#ffffff', fontWeight: '600', textAlign: 'left' }}>Zadania</th>
-              <th style={{ width: '120px', fontSize: '13px', padding: '6px 8px', background: '#d22f27', color: '#ffffff', fontWeight: '600', textAlign: 'left' }}>Status</th>
+              <th style={{ width: '90px', fontSize: '13px', padding: '6px 8px', background: 'var(--app-accent)', color: 'var(--app-accent-foreground)', fontWeight: '600', textAlign: 'left' }}>Dzień</th>
+              <th style={{ width: '70px', fontSize: '13px', padding: '6px 8px', background: 'var(--app-accent)', color: 'var(--app-accent-foreground)', fontWeight: '600', textAlign: 'center' }}>Godziny</th>
+              <th style={{ width: '120px', fontSize: '13px', padding: '6px 8px', background: 'var(--app-accent)', color: 'var(--app-accent-foreground)', fontWeight: '600', textAlign: 'left' }}>Kto zlecił</th>
+              <th style={{ minWidth: '300px', fontSize: '13px', padding: '6px 8px', background: 'var(--app-accent)', color: 'var(--app-accent-foreground)', fontWeight: '600', textAlign: 'left' }}>Zadania</th>
+              <th style={{ width: '120px', fontSize: '13px', padding: '6px 8px', background: 'var(--app-accent)', color: 'var(--app-accent-foreground)', fontWeight: '600', textAlign: 'left' }}>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -933,29 +934,43 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
               // Zbierz wszystkich, którzy zlecili zadania dla tego dnia
               const dayAssigners = [...new Set(dayData.tasks.flatMap(t => Array.isArray(t.assignedBy) ? t.assignedBy : (t.assignedBy ? [t.assignedBy] : [])).filter(Boolean))]
 
+              const isHighlighted = highlightDate === dateKey
+              
               return (
                 <tr 
-                  key={dateKey} 
-                  style={{ background: days.indexOf(day) % 2 === 0 ? '#141414' : '#1a1a1a' }}
+                  key={dateKey}
+                  data-day={dateKey}
+                  style={{ 
+                    background: isHighlighted 
+                      ? '#2a1a1a' 
+                      : (days.indexOf(day) % 2 === 0 ? 'var(--app-bg)' : 'var(--app-card)'),
+                    borderLeft: isHighlighted ? '3px solid var(--app-accent)' : 'none',
+                    transition: 'all 0.3s ease'
+                  }}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, dateKey)}
                 >
                   <td 
-                    style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', verticalAlign: 'top' }}
+                    style={{ 
+                      padding: '4px 6px', 
+                      borderBottom: '1px solid var(--app-border)', 
+                      verticalAlign: 'top',
+                      fontWeight: isHighlighted ? '600' : 'normal'
+                    }}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, dateKey)}
                   >
-                    <div style={{ fontWeight: '500', color: '#ffffff', marginBottom: '2px', fontSize: '13px', lineHeight: '1.2' }}>
+                    <div style={{ fontWeight: isHighlighted ? '600' : '500', color: isHighlighted ? 'var(--app-accent)' : 'var(--app-text)', marginBottom: '2px', fontSize: '13px', lineHeight: '1.2' }}>
                       {format(day, 'dd.MM.yyyy')}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#888', textTransform: 'lowercase', lineHeight: '1.2' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--app-text-muted)', textTransform: 'lowercase', lineHeight: '1.2' }}>
                       {getDayName(day)}
                     </div>
                   </td>
                   <td 
-                    style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', textAlign: 'center', fontWeight: '600', color: '#d22f27', fontSize: '13px', verticalAlign: 'top' }}
+                    style={{ padding: '4px 6px', borderBottom: '1px solid var(--app-border)', textAlign: 'center', fontWeight: '600', color: 'var(--app-accent)', fontSize: '13px', verticalAlign: 'top' }}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, dateKey)}
@@ -963,7 +978,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                     {dayData.totalHours}
                   </td>
                   <td 
-                    style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', verticalAlign: 'top' }}
+                    style={{ padding: '4px 6px', borderBottom: '1px solid var(--app-border)', verticalAlign: 'top' }}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, dateKey)}
@@ -980,7 +995,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                                 alignItems: 'center',
                                 gap: '6px',
                                 fontSize: '12px',
-                                color: '#ffffff',
+                                color: 'var(--app-text)',
                                 lineHeight: '1.3'
                               }}
                             >
@@ -1007,13 +1022,13 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                                     width: '18px',
                                     height: '18px',
                                     borderRadius: '50%',
-                                    background: '#d22f27',
+                                    background: 'var(--app-accent)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     fontSize: '9px',
                                     fontWeight: '600',
-                                    color: '#ffffff',
+                                    color: 'var(--app-accent-foreground)',
                                     flexShrink: 0
                                   }}
                                 >
@@ -1026,11 +1041,11 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                         })}
                       </div>
                     ) : (
-                      <div style={{ fontSize: '13px', color: '#888' }}>-</div>
+                      <div style={{ fontSize: '13px', color: 'var(--app-text-muted)' }}>-</div>
                     )}
                   </td>
                   <td 
-                    style={{ padding: '4px 6px', borderBottom: '1px solid #2a2a2a', verticalAlign: 'top' }}
+                    style={{ padding: '4px 6px', borderBottom: '1px solid var(--app-border)', verticalAlign: 'top' }}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, dateKey)}
@@ -1046,7 +1061,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                   <td 
                     style={{ 
                       padding: '4px 6px', 
-                      borderBottom: '1px solid #2a2a2a', 
+                      borderBottom: '1px solid var(--app-border)', 
                       verticalAlign: 'top',
                       position: 'relative'
                     }}
@@ -1094,7 +1109,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                               }}
                             >
                               {/* Numer zadania */}
-                              <div style={{ minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#d22f27', color: '#ffffff', borderRadius: '2px', fontSize: '10px', fontWeight: '600', flexShrink: 0 }}>
+                              <div style={{ minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--app-accent)', color: 'var(--app-accent-foreground)', borderRadius: '2px', fontSize: '10px', fontWeight: '600', flexShrink: 0 }}>
                                 {taskNumber}
                               </div>
                               <select
@@ -1111,7 +1126,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                                   cursor: 'pointer',
                                   fontSize: '11px',
                                   background: statusColors[task.status],
-                                  color: '#ffffff',
+                                  color: 'var(--app-accent-foreground)',
                                   fontWeight: '500',
                                   flex: 1,
                                   outline: 'none',
@@ -1138,13 +1153,13 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
                         })}
                       </div>
                     ) : (
-                      <div style={{ fontSize: '13px', color: '#888' }}>-</div>
+                      <div style={{ fontSize: '13px', color: 'var(--app-text-muted)' }}>-</div>
                     )}
                   </td>
                 </tr>
               )
             })}
-            <tr style={{ background: '#d22f27', fontWeight: '600', color: '#ffffff' }}>
+            <tr style={{ background: 'var(--app-accent)', fontWeight: '600', color: 'var(--app-accent-foreground)' }}>
               <td colSpan={1} style={{ textAlign: 'right', padding: '6px 8px', fontSize: '13px' }}>
                 RAZEM:
               </td>
@@ -1169,8 +1184,8 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
           onClick={generatePDF}
           style={{
             padding: '6px 12px',
-            background: '#d22f27',
-            color: '#ffffff',
+            background: 'var(--app-accent)',
+            color: 'var(--app-accent-foreground)',
             border: 'none',
             borderRadius: '3px',
             fontSize: '13px',
@@ -1182,13 +1197,13 @@ export default function CalendarTable({ clientId, clientName, clientLogo }: Cale
             gap: '6px'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#b0251f'
+            e.currentTarget.style.filter = 'brightness(0.9)'
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = '#d22f27'
+            e.currentTarget.style.filter = 'none'
           }}
         >
-          <FileText size={14} color="#ffffff" />
+          <FileText size={14} style={{ color: 'var(--app-accent-foreground)' }} />
           Generuj PDF
         </button>
       </div>

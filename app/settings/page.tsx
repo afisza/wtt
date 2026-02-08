@@ -499,14 +499,13 @@ const SettingsPage = (): JSX.Element | null => {
   return (
     <div style={{ 
       minHeight: '100vh',
-      background: '#141414',
-      paddingBottom: '24px',
-      transition: 'background-color 0.3s ease'
+      background: 'var(--app-bg)',
+      paddingBottom: '24px'
     }}>
       {/* Header */}
       <header style={{
-        background: '#141414',
-        borderBottom: '1px solid #2a2a2a',
+        background: 'var(--app-bg)',
+        borderBottom: '1px solid var(--app-border)',
         padding: '12px 16px',
         marginBottom: '16px'
       }}>
@@ -523,18 +522,18 @@ const SettingsPage = (): JSX.Element | null => {
               <div style={{
                 width: '32px',
                 height: '32px',
-                background: '#d22f27',
+                background: 'var(--app-accent)',
                 borderRadius: '4px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <Settings size={18} color="#ffffff" />
+                <Settings size={18} color="var(--app-accent-foreground)" />
               </div>
               <h1 style={{ 
                 fontSize: '16px', 
                 fontWeight: '600',
-                color: '#ffffff',
+                color: 'var(--app-text)',
                 letterSpacing: '-0.3px'
               }}>
                 Ustawienia
@@ -546,9 +545,9 @@ const SettingsPage = (): JSX.Element | null => {
               onClick={toggleTheme}
               style={{
                 padding: '10px',
-                background: isDark ? '#374151' : 'transparent',
-                color: isDark ? '#FBBF24' : '#6B7280',
-                border: `2px solid ${isDark ? '#4B5563' : '#E5E7EB'}`,
+                background: 'var(--app-card-alt)',
+                color: 'var(--app-text-muted)',
+                border: '2px solid var(--app-border)',
                 borderRadius: '8px',
                 fontSize: '20px',
                 cursor: 'pointer',
@@ -560,24 +559,24 @@ const SettingsPage = (): JSX.Element | null => {
                 height: '44px'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = isDark ? '#4B5563' : '#F3F4F6'
+                e.currentTarget.style.filter = 'brightness(0.95)'
                 e.currentTarget.style.transform = 'scale(1.05)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = isDark ? '#374151' : 'transparent'
+                e.currentTarget.style.filter = 'none'
                 e.currentTarget.style.transform = 'scale(1)'
               }}
               title={isDark ? 'Przełącz na jasny motyw' : 'Przełącz na ciemny motyw'}
             >
-              {isDark ? <Sun size={20} color="#FBBF24" /> : <Moon size={20} color="#6B7280" />}
+              {isDark ? <Sun size={20} color="#FBBF24" /> : <Moon size={20} color="var(--app-text-muted)" />}
             </button>
             <button
               onClick={() => router.push('/')}
               style={{ 
                 padding: '10px 16px', 
-                background: isDark ? '#374151' : 'white',
-                color: '#d22f27',
-                border: '2px solid #d22f27',
+                background: 'transparent',
+                color: 'var(--app-accent)',
+                border: '2px solid var(--app-accent)',
                 borderRadius: '8px',
                 fontSize: '14px',
                 fontWeight: '600',
@@ -586,13 +585,13 @@ const SettingsPage = (): JSX.Element | null => {
                 whiteSpace: 'nowrap'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#d22f27'
-                e.currentTarget.style.color = 'white'
+                e.currentTarget.style.background = 'var(--app-accent)'
+                e.currentTarget.style.color = 'var(--app-accent-foreground)'
                 e.currentTarget.style.transform = 'translateY(-1px)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = isDark ? '#374151' : 'white'
-                e.currentTarget.style.color = '#d22f27'
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.color = 'var(--app-accent)'
                 e.currentTarget.style.transform = 'translateY(0)'
               }}
             >
@@ -602,25 +601,22 @@ const SettingsPage = (): JSX.Element | null => {
               onClick={handleLogout}
               style={{ 
                 padding: '10px 20px', 
-                background: '#d22f27',
-                color: 'white',
+                background: 'var(--app-accent)',
+                color: 'var(--app-accent-foreground)',
                 border: 'none',
                 borderRadius: '8px',
                 fontSize: '14px',
                 fontWeight: '600',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)'
+                transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#DC2626'
+                e.currentTarget.style.filter = 'brightness(0.9)'
                 e.currentTarget.style.transform = 'translateY(-1px)'
-                e.currentTarget.style.boxShadow = '0 4px 6px rgba(239, 68, 68, 0.3)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#d22f27'
+                e.currentTarget.style.filter = 'none'
                 e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(239, 68, 68, 0.2)'
               }}
             >
               Wyloguj
@@ -633,10 +629,10 @@ const SettingsPage = (): JSX.Element | null => {
         {/* Tabs */}
         <div style={{ 
           marginBottom: '12px',
-          background: '#141414',
+          background: 'var(--app-bg)',
           borderRadius: '4px',
           padding: '4px',
-          border: '1px solid #2a2a2a',
+          border: '1px solid var(--app-border)',
           display: 'inline-flex',
           gap: '4px',
           flexWrap: 'wrap'
@@ -645,27 +641,25 @@ const SettingsPage = (): JSX.Element | null => {
             onClick={() => setActiveTab('config')}
             style={{
               padding: '6px 12px',
-              background: activeTab === 'config' 
-                ? '#d22f27' 
-                : 'transparent',
+              background: activeTab === 'config' ? 'var(--app-accent)' : 'transparent',
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: activeTab === 'config' ? '500' : '400',
-              color: activeTab === 'config' ? '#ffffff' : '#888',
+              fontSize: '13px',
+              fontWeight: activeTab === 'config' ? '600' : '500',
+              color: activeTab === 'config' ? 'var(--app-accent-foreground)' : 'var(--app-text-muted)',
               transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
               if (activeTab !== 'config') {
-                e.currentTarget.style.background = isDark ? '#374151' : '#F3F4F6'
-                e.currentTarget.style.color = '#d22f27'
+                e.currentTarget.style.background = 'var(--app-card-alt)'
+                e.currentTarget.style.color = 'var(--app-accent)'
               }
             }}
             onMouseLeave={(e) => {
               if (activeTab !== 'config') {
                 e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = isDark ? '#E5E7EB' : '#6B7280'
+                e.currentTarget.style.color = 'var(--app-text-muted)'
               }
             }}
           >
@@ -679,28 +673,26 @@ const SettingsPage = (): JSX.Element | null => {
               }
             }}
             style={{
-              padding: '12px 24px',
-              background: activeTab === 'info' 
-                ? '#d22f27' 
-                : 'transparent',
+              padding: '6px 12px',
+              background: activeTab === 'info' ? 'var(--app-accent)' : 'transparent',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '15px',
+              fontSize: '13px',
               fontWeight: activeTab === 'info' ? '600' : '500',
-              color: activeTab === 'info' ? 'white' : (isDark ? '#E5E7EB' : '#6B7280'),
+              color: activeTab === 'info' ? 'var(--app-accent-foreground)' : 'var(--app-text-muted)',
               transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
               if (activeTab !== 'info') {
-                e.currentTarget.style.background = isDark ? '#374151' : '#F3F4F6'
-                e.currentTarget.style.color = '#d22f27'
+                e.currentTarget.style.background = 'var(--app-card-alt)'
+                e.currentTarget.style.color = 'var(--app-accent)'
               }
             }}
             onMouseLeave={(e) => {
               if (activeTab !== 'info') {
                 e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = isDark ? '#E5E7EB' : '#6B7280'
+                e.currentTarget.style.color = 'var(--app-text-muted)'
               }
             }}
           >
@@ -709,28 +701,26 @@ const SettingsPage = (): JSX.Element | null => {
           <button
             onClick={() => setActiveTab('rate')}
             style={{
-              padding: '12px 24px',
-              background: activeTab === 'rate' 
-                ? '#d22f27' 
-                : 'transparent',
+              padding: '6px 12px',
+              background: activeTab === 'rate' ? 'var(--app-accent)' : 'transparent',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '15px',
+              fontSize: '13px',
               fontWeight: activeTab === 'rate' ? '600' : '500',
-              color: activeTab === 'rate' ? 'white' : (isDark ? '#E5E7EB' : '#6B7280'),
+              color: activeTab === 'rate' ? 'var(--app-accent-foreground)' : 'var(--app-text-muted)',
               transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
               if (activeTab !== 'rate') {
-                e.currentTarget.style.background = isDark ? '#374151' : '#F3F4F6'
-                e.currentTarget.style.color = '#d22f27'
+                e.currentTarget.style.background = 'var(--app-card-alt)'
+                e.currentTarget.style.color = 'var(--app-accent)'
               }
             }}
             onMouseLeave={(e) => {
               if (activeTab !== 'rate') {
                 e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = isDark ? '#E5E7EB' : '#6B7280'
+                e.currentTarget.style.color = 'var(--app-text-muted)'
               }
             }}
           >
@@ -739,28 +729,26 @@ const SettingsPage = (): JSX.Element | null => {
           <button
             onClick={() => setActiveTab('assigners')}
             style={{
-              padding: '12px 24px',
-              background: activeTab === 'assigners' 
-                ? '#d22f27' 
-                : 'transparent',
+              padding: '6px 12px',
+              background: activeTab === 'assigners' ? 'var(--app-accent)' : 'transparent',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '15px',
+              fontSize: '13px',
               fontWeight: activeTab === 'assigners' ? '600' : '500',
-              color: activeTab === 'assigners' ? 'white' : (isDark ? '#E5E7EB' : '#6B7280'),
+              color: activeTab === 'assigners' ? 'var(--app-accent-foreground)' : 'var(--app-text-muted)',
               transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
               if (activeTab !== 'assigners') {
-                e.currentTarget.style.background = isDark ? '#374151' : '#F3F4F6'
-                e.currentTarget.style.color = '#d22f27'
+                e.currentTarget.style.background = 'var(--app-card-alt)'
+                e.currentTarget.style.color = 'var(--app-accent)'
               }
             }}
             onMouseLeave={(e) => {
               if (activeTab !== 'assigners') {
                 e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = isDark ? '#E5E7EB' : '#6B7280'
+                e.currentTarget.style.color = 'var(--app-text-muted)'
               }
             }}
           >
@@ -769,27 +757,26 @@ const SettingsPage = (): JSX.Element | null => {
           <button
             onClick={() => setActiveTab('clients')}
             style={{
-              padding: '8px 16px',
-              background: activeTab === 'clients' 
-                ? '#d22f27' 
-                : 'transparent',
+              padding: '6px 12px',
+              background: activeTab === 'clients' ? 'var(--app-accent)' : 'transparent',
               border: 'none',
               borderRadius: '4px',
-              fontSize: '15px',
+              cursor: 'pointer',
+              fontSize: '13px',
               fontWeight: activeTab === 'clients' ? '600' : '500',
-              color: activeTab === 'clients' ? 'white' : (isDark ? '#E5E7EB' : '#6B7280'),
+              color: activeTab === 'clients' ? 'var(--app-accent-foreground)' : 'var(--app-text-muted)',
               transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
               if (activeTab !== 'clients') {
-                e.currentTarget.style.background = isDark ? '#374151' : '#F3F4F6'
-                e.currentTarget.style.color = '#d22f27'
+                e.currentTarget.style.background = 'var(--app-card-alt)'
+                e.currentTarget.style.color = 'var(--app-accent)'
               }
             }}
             onMouseLeave={(e) => {
               if (activeTab !== 'clients') {
                 e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = isDark ? '#E5E7EB' : '#6B7280'
+                e.currentTarget.style.color = 'var(--app-text-muted)'
               }
             }}
           >
@@ -799,10 +786,10 @@ const SettingsPage = (): JSX.Element | null => {
 
         {/* Tab Content */}
         <div style={{ 
-          background: '#141414', 
+          background: 'var(--app-card)', 
           padding: '16px', 
           borderRadius: '4px', 
-          border: '1px solid #2a2a2a'
+          border: '1px solid var(--app-border)'
         }}>
         {activeTab === 'config' && (
           <div>
@@ -810,7 +797,7 @@ const SettingsPage = (): JSX.Element | null => {
               marginBottom: '24px',
               fontSize: '22px',
               fontWeight: '700',
-              color: isDark ? '#F9FAFB' : '#1F2937',
+              color: 'var(--app-text)',
               letterSpacing: '-0.5px'
             }}>
               Konfiguracja połączenia MySQL
@@ -820,21 +807,21 @@ const SettingsPage = (): JSX.Element | null => {
             <div style={{ 
               marginBottom: '32px', 
               padding: '20px', 
-              background: isDark ? '#1a1a1a' : '#F9FAFB',
+              background: 'var(--app-card-alt)',
               borderRadius: '12px',
-              border: `1px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`
+              border: `1px solid ${'var(--app-border)'}`
             }}>
               <h3 style={{ 
                 fontSize: '16px', 
                 fontWeight: '600', 
-                color: isDark ? '#F9FAFB' : '#1F2937', 
+                color: 'var(--app-text)', 
                 marginBottom: '16px' 
               }}>
                 Tryb przechowywania danych
               </h3>
               <p style={{ 
                 fontSize: '13px', 
-                color: isDark ? '#888' : '#6B7280', 
+                color: 'var(--app-text-muted)', 
                 marginBottom: '16px',
                 lineHeight: '1.6'
               }}>
@@ -851,8 +838,8 @@ const SettingsPage = (): JSX.Element | null => {
                       : (isDark ? '#2a2a2a' : '#ffffff'),
                     color: storageMode === 'mysql' 
                       ? '#ffffff' 
-                      : (isDark ? '#ffffff' : '#1F2937'),
-                    border: `2px solid ${storageMode === 'mysql' ? '#d22f27' : (isDark ? '#2a2a2a' : '#E5E7EB')}`,
+                      : ('var(--app-text)'),
+                    border: `2px solid ${storageMode === 'mysql' ? '#d22f27' : ('var(--app-border)')}`,
                     borderRadius: '8px',
                     fontSize: '14px',
                     fontWeight: '600',
@@ -865,13 +852,13 @@ const SettingsPage = (): JSX.Element | null => {
                   onMouseEnter={(e) => {
                     if (storageMode !== 'mysql') {
                       e.currentTarget.style.borderColor = '#d22f27'
-                      e.currentTarget.style.background = isDark ? '#2a2a2a' : '#F3F4F6'
+                      e.currentTarget.style.background = 'var(--app-card-alt)'
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (storageMode !== 'mysql') {
-                      e.currentTarget.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
-                      e.currentTarget.style.background = isDark ? '#2a2a2a' : '#ffffff'
+                      e.currentTarget.style.borderColor = 'var(--app-border)'
+                      e.currentTarget.style.background = 'var(--app-card-alt)'
                     }
                   }}
                 >
@@ -887,8 +874,8 @@ const SettingsPage = (): JSX.Element | null => {
                       : (isDark ? '#2a2a2a' : '#ffffff'),
                     color: storageMode === 'json' 
                       ? '#ffffff' 
-                      : (isDark ? '#ffffff' : '#1F2937'),
-                    border: `2px solid ${storageMode === 'json' ? '#d22f27' : (isDark ? '#2a2a2a' : '#E5E7EB')}`,
+                      : ('var(--app-text)'),
+                    border: `2px solid ${storageMode === 'json' ? '#d22f27' : ('var(--app-border)')}`,
                     borderRadius: '8px',
                     fontSize: '14px',
                     fontWeight: '600',
@@ -901,13 +888,13 @@ const SettingsPage = (): JSX.Element | null => {
                   onMouseEnter={(e) => {
                     if (storageMode !== 'json') {
                       e.currentTarget.style.borderColor = '#d22f27'
-                      e.currentTarget.style.background = isDark ? '#2a2a2a' : '#F3F4F6'
+                      e.currentTarget.style.background = 'var(--app-card-alt)'
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (storageMode !== 'json') {
-                      e.currentTarget.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
-                      e.currentTarget.style.background = isDark ? '#2a2a2a' : '#ffffff'
+                      e.currentTarget.style.borderColor = 'var(--app-border)'
+                      e.currentTarget.style.background = 'var(--app-card-alt)'
                     }
                   }}
                 >
@@ -962,21 +949,21 @@ const SettingsPage = (): JSX.Element | null => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: `2px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
+                    border: `2px solid ${'var(--app-border)'}`,
                     borderRadius: '8px',
                     fontSize: '15px',
-                    background: isDark ? '#1a1a1a' : '#F9FAFB',
-                    color: isDark ? '#ffffff' : '#1F2937',
+                    background: 'var(--app-card-alt)',
+                    color: 'var(--app-text)',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#d22f27'
-                    e.target.style.background = isDark ? '#2a2a2a' : 'white'
+                    e.target.style.background = 'var(--app-card-alt)'
                     e.target.style.boxShadow = '0 0 0 3px rgba(210, 47, 39, 0.1)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
-                    e.target.style.background = isDark ? '#1a1a1a' : '#F9FAFB'
+                    e.target.style.borderColor = 'var(--app-border)'
+                    e.target.style.background = 'var(--app-card-alt)'
                     e.target.style.boxShadow = 'none'
                   }}
                 />
@@ -1000,21 +987,21 @@ const SettingsPage = (): JSX.Element | null => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: `2px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
+                    border: `2px solid ${'var(--app-border)'}`,
                     borderRadius: '8px',
                     fontSize: '15px',
-                    background: isDark ? '#1a1a1a' : '#F9FAFB',
-                    color: isDark ? '#ffffff' : '#1F2937',
+                    background: 'var(--app-card-alt)',
+                    color: 'var(--app-text)',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#d22f27'
-                    e.target.style.background = isDark ? '#2a2a2a' : 'white'
+                    e.target.style.background = 'var(--app-card-alt)'
                     e.target.style.boxShadow = '0 0 0 3px rgba(210, 47, 39, 0.1)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
-                    e.target.style.background = isDark ? '#1a1a1a' : '#F9FAFB'
+                    e.target.style.borderColor = 'var(--app-border)'
+                    e.target.style.background = 'var(--app-card-alt)'
                     e.target.style.boxShadow = 'none'
                   }}
                 />
@@ -1038,21 +1025,21 @@ const SettingsPage = (): JSX.Element | null => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: `2px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
+                    border: `2px solid ${'var(--app-border)'}`,
                     borderRadius: '8px',
                     fontSize: '15px',
-                    background: isDark ? '#1a1a1a' : '#F9FAFB',
-                    color: isDark ? '#ffffff' : '#1F2937',
+                    background: 'var(--app-card-alt)',
+                    color: 'var(--app-text)',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#d22f27'
-                    e.target.style.background = isDark ? '#2a2a2a' : 'white'
+                    e.target.style.background = 'var(--app-card-alt)'
                     e.target.style.boxShadow = '0 0 0 3px rgba(210, 47, 39, 0.1)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
-                    e.target.style.background = isDark ? '#1a1a1a' : '#F9FAFB'
+                    e.target.style.borderColor = 'var(--app-border)'
+                    e.target.style.background = 'var(--app-card-alt)'
                     e.target.style.boxShadow = 'none'
                   }}
                 />
@@ -1076,26 +1063,26 @@ const SettingsPage = (): JSX.Element | null => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: `2px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
+                    border: `2px solid ${'var(--app-border)'}`,
                     borderRadius: '8px',
                     fontSize: '15px',
-                    background: isDark ? '#1a1a1a' : '#F9FAFB',
-                    color: isDark ? '#ffffff' : '#1F2937',
+                    background: 'var(--app-card-alt)',
+                    color: 'var(--app-text)',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#d22f27'
-                    e.target.style.background = isDark ? '#2a2a2a' : 'white'
+                    e.target.style.background = 'var(--app-card-alt)'
                     e.target.style.boxShadow = '0 0 0 3px rgba(210, 47, 39, 0.1)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
-                    e.target.style.background = isDark ? '#1a1a1a' : '#F9FAFB'
+                    e.target.style.borderColor = 'var(--app-border)'
+                    e.target.style.background = 'var(--app-card-alt)'
                     e.target.style.boxShadow = 'none'
                   }}
                 />
                 {hasPassword && (
-                  <p style={{ fontSize: '12px', color: isDark ? '#888' : '#6B7280', marginTop: '6px' }}>
+                  <p style={{ fontSize: '12px', color: 'var(--app-text-muted)', marginTop: '6px' }}>
                     {config.password ? 'Zostanie zapisane nowe hasło' : 'Pozostaw puste aby użyć zapisanego hasła przy teście połączenia'}
                   </p>
                 )}
@@ -1125,21 +1112,21 @@ const SettingsPage = (): JSX.Element | null => {
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: `2px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
+                    border: `2px solid ${'var(--app-border)'}`,
                     borderRadius: '8px',
                     fontSize: '15px',
-                    background: isDark ? '#1a1a1a' : '#F9FAFB',
-                    color: isDark ? '#ffffff' : '#1F2937',
+                    background: 'var(--app-card-alt)',
+                    color: 'var(--app-text)',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#d22f27'
-                    e.target.style.background = isDark ? '#2a2a2a' : 'white'
+                    e.target.style.background = 'var(--app-card-alt)'
                     e.target.style.boxShadow = '0 0 0 3px rgba(210, 47, 39, 0.1)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = isDark ? '#2a2a2a' : '#E5E7EB'
-                    e.target.style.background = isDark ? '#1a1a1a' : '#F9FAFB'
+                    e.target.style.borderColor = 'var(--app-border)'
+                    e.target.style.background = 'var(--app-card-alt)'
                     e.target.style.boxShadow = 'none'
                   }}
                 />
@@ -1272,7 +1259,7 @@ const SettingsPage = (): JSX.Element | null => {
               marginBottom: '24px',
               fontSize: '22px',
               fontWeight: '700',
-              color: isDark ? '#F9FAFB' : '#1F2937',
+              color: 'var(--app-text)',
               letterSpacing: '-0.5px'
             }}>
               Stawka godzinowa
@@ -1303,7 +1290,7 @@ const SettingsPage = (): JSX.Element | null => {
                     borderRadius: '8px',
                     fontSize: '15px',
                     background: isDark ? '#111827' : '#F9FAFB',
-                    color: isDark ? '#F9FAFB' : '#1F2937',
+                    color: 'var(--app-text)',
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
@@ -1356,7 +1343,7 @@ const SettingsPage = (): JSX.Element | null => {
                 margin: 0,
                 fontSize: '22px',
                 fontWeight: '700',
-                color: isDark ? '#F9FAFB' : '#1F2937',
+                color: 'var(--app-text)',
                 letterSpacing: '-0.5px'
               }}>
                 Informacje o bazie danych
@@ -1593,7 +1580,7 @@ const SettingsPage = (): JSX.Element | null => {
               <div style={{ 
                 padding: '40px', 
                 textAlign: 'center',
-                color: isDark ? '#888' : '#6B7280',
+                color: 'var(--app-text-muted)',
                 fontSize: '15px'
               }}>
                 Ładowanie informacji...
@@ -1613,7 +1600,7 @@ const SettingsPage = (): JSX.Element | null => {
                     marginBottom: '8px',
                     fontSize: '14px',
                     fontWeight: '600',
-                    color: isDark ? '#888' : '#6B7280',
+                    color: 'var(--app-text-muted)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px'
                   }}>
@@ -1634,14 +1621,14 @@ const SettingsPage = (): JSX.Element | null => {
                     marginBottom: '16px',
                     fontSize: '18px',
                     fontWeight: '700',
-                    color: isDark ? '#F9FAFB' : '#1F2937'
+                    color: 'var(--app-text)'
                   }}>
                     Tabele w bazie danych
                   </h3>
                   <div style={{
                     borderRadius: '12px',
                     overflow: 'hidden',
-                    border: `1px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
+                    border: `1px solid ${'var(--app-border)'}`,
                     boxShadow: isDark ? '0 1px 3px 0 rgba(0, 0, 0, 0.3)' : '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
                   }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -1721,9 +1708,9 @@ const SettingsPage = (): JSX.Element | null => {
                               <td style={{ 
                                 padding: '14px 16px', 
                                 border: 'none',
-                                borderBottom: `1px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
+                                borderBottom: `1px solid ${'var(--app-border)'}`,
                                 fontWeight: '600',
-                                color: isDark ? '#F9FAFB' : '#1F2937'
+                                color: 'var(--app-text)'
                               }}>
                                 {table.name}
                               </td>
@@ -1731,8 +1718,8 @@ const SettingsPage = (): JSX.Element | null => {
                                 padding: '14px 16px', 
                                 textAlign: 'right', 
                                 border: 'none',
-                                borderBottom: `1px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
-                                color: isDark ? '#888' : '#6B7280'
+                                borderBottom: `1px solid ${'var(--app-border)'}`,
+                                color: 'var(--app-text-muted)'
                               }}>
                                 {table.rows.toLocaleString()}
                               </td>
@@ -1740,7 +1727,7 @@ const SettingsPage = (): JSX.Element | null => {
                                 padding: '14px 16px', 
                                 textAlign: 'right', 
                                 border: 'none',
-                                borderBottom: `1px solid ${isDark ? '#2a2a2a' : '#E5E7EB'}`,
+                                borderBottom: `1px solid ${'var(--app-border)'}`,
                                 color: '#d22f27',
                                 fontWeight: '600'
                               }}>
@@ -1857,7 +1844,7 @@ const SettingsPage = (): JSX.Element | null => {
               marginBottom: '24px',
               fontSize: '22px',
               fontWeight: '700',
-              color: isDark ? '#F9FAFB' : '#1F2937',
+              color: 'var(--app-text)',
               letterSpacing: '-0.5px'
             }}>
               Osoby zlecające
@@ -1867,11 +1854,11 @@ const SettingsPage = (): JSX.Element | null => {
             <div style={{ 
               marginBottom: '24px', 
               padding: '16px', 
-              background: isDark ? '#1a1a1a' : '#F9FAFB',
+              background: 'var(--app-card-alt)',
               borderRadius: '8px',
               border: '1px solid #2a2a2a'
             }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: isDark ? '#F9FAFB' : '#1F2937', marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', color: 'var(--app-text)', marginBottom: '12px' }}>
                 Dodaj nową osobę zlecającą
               </h3>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
@@ -1986,7 +1973,7 @@ const SettingsPage = (): JSX.Element | null => {
                         borderRadius: '6px',
                         fontSize: '14px',
                         background: isDark ? '#111827' : 'white',
-                        color: isDark ? '#F9FAFB' : '#1F2937',
+                        color: 'var(--app-text)',
                         outline: 'none'
                       }}
                       onFocus={(e) => {
@@ -2051,7 +2038,7 @@ const SettingsPage = (): JSX.Element | null => {
                 textAlign: 'center', 
                 color: '#6B7280', 
                 fontSize: '15px',
-                background: isDark ? '#1a1a1a' : '#F9FAFB',
+                background: 'var(--app-card-alt)',
                 borderRadius: '8px',
                 border: '1px solid #2a2a2a'
               }}>
@@ -2064,7 +2051,7 @@ const SettingsPage = (): JSX.Element | null => {
                     key={assigner.id}
                     style={{
                       padding: '16px',
-                      background: isDark ? '#1a1a1a' : '#F9FAFB',
+                      background: 'var(--app-card-alt)',
                       borderRadius: '8px',
                       border: '1px solid #2a2a2a',
                       display: 'flex',
@@ -2152,7 +2139,7 @@ const SettingsPage = (): JSX.Element | null => {
                             borderRadius: '4px',
                             fontSize: '14px',
                             background: isDark ? '#111827' : 'white',
-                            color: isDark ? '#F9FAFB' : '#1F2937',
+                            color: 'var(--app-text)',
                             outline: 'none'
                           }}
                           autoFocus
@@ -2195,7 +2182,7 @@ const SettingsPage = (): JSX.Element | null => {
                     ) : (
                       <>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '16px', fontWeight: '600', color: isDark ? '#F9FAFB' : '#1F2937', marginBottom: '4px' }}>
+                          <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--app-text)', marginBottom: '4px' }}>
                             {assigner.name}
                           </div>
                           <div style={{ fontSize: '12px', color: '#6B7280' }}>
@@ -2477,7 +2464,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
         marginBottom: '24px',
         fontSize: '22px',
         fontWeight: '700',
-        color: isDark ? '#F9FAFB' : '#1F2937',
+        color: 'var(--app-text)',
         letterSpacing: '-0.5px'
       }}>
         Klienci
@@ -2487,11 +2474,11 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
       <div style={{ 
         marginBottom: '24px', 
         padding: '16px', 
-        background: isDark ? '#1a1a1a' : '#F9FAFB',
+        background: 'var(--app-card-alt)',
         borderRadius: '8px',
-        border: '1px solid #2a2a2a'
+        border: '1px solid var(--app-border)'
       }}>
-        <h3 style={{ fontSize: '16px', fontWeight: '600', color: isDark ? '#F9FAFB' : '#1F2937', marginBottom: '12px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: 'var(--app-text)', marginBottom: '12px' }}>
           Dodaj nowego klienta
         </h3>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
@@ -2506,7 +2493,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                   height: '60px',
                   borderRadius: '4px',
                   objectFit: 'cover',
-                  border: '2px solid #d22f27'
+                  border: '2px solid var(--app-accent)'
                 }}
               />
             ) : (
@@ -2514,20 +2501,20 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                 width: '60px',
                 height: '60px',
                 borderRadius: '4px',
-                background: '#2a2a2a',
+                background: 'var(--app-card)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '2px dashed #888'
+                border: '2px dashed var(--app-border)'
               }}>
-                <User size={24} color="#888" />
+                <User size={24} style={{ color: 'var(--app-text-muted)' }} />
               </div>
             )}
             <label style={{
               position: 'absolute',
               bottom: '-8px',
               right: '-8px',
-              background: '#d22f27',
+              background: 'var(--app-accent)',
               borderRadius: '50%',
               width: '24px',
               height: '24px',
@@ -2535,9 +2522,9 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              border: '2px solid #141414'
+              border: '2px solid var(--app-bg)'
             }}>
-              <Upload size={12} color="white" />
+              <Upload size={12} style={{ color: 'var(--app-accent-foreground)' }} />
               <input
                 type="file"
                 accept="image/*"
@@ -2582,9 +2569,9 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                 width: '100%',
                 padding: '8px 12px',
                 fontSize: '15px',
-                background: '#1a1a1a',
-                color: '#ffffff',
-                border: '1px solid #2a2a2a',
+                background: 'var(--app-card)',
+                color: 'var(--app-text)',
+                border: '1px solid var(--app-border)',
                 borderRadius: '4px',
                 marginBottom: '8px',
                 outline: 'none'
@@ -2599,9 +2586,9 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                 width: '100%',
                 padding: '8px 12px',
                 fontSize: '15px',
-                background: '#1a1a1a',
-                color: '#ffffff',
-                border: '1px solid #2a2a2a',
+                background: 'var(--app-card)',
+                color: 'var(--app-text)',
+                border: '1px solid var(--app-border)',
                 borderRadius: '4px',
                 marginBottom: '8px',
                 outline: 'none'
@@ -2612,8 +2599,8 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
               disabled={uploadingLogo}
               style={{
                 padding: '6px 12px',
-                background: '#d22f27',
-                color: '#ffffff',
+                background: 'var(--app-accent)',
+                color: 'var(--app-accent-foreground)',
                 border: 'none',
                 borderRadius: '4px',
                 fontSize: '13px',
@@ -2622,7 +2609,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                 opacity: uploadingLogo ? 0.6 : 1
               }}
             >
-              <Plus size={14} color="#ffffff" style={{ marginRight: '4px', display: 'inline-block', verticalAlign: 'middle' }} />
+              <Plus size={14} style={{ marginRight: '4px', display: 'inline-block', verticalAlign: 'middle', color: 'var(--app-accent-foreground)' }} />
               Dodaj klienta
             </button>
           </div>
@@ -2631,15 +2618,15 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
 
       {/* Lista klientów */}
       <div>
-        <h3 style={{ fontSize: '16px', fontWeight: '600', color: isDark ? '#F9FAFB' : '#1F2937', marginBottom: '12px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: 'var(--app-text)', marginBottom: '12px' }}>
           Lista klientów ({clients.length})
         </h3>
         {clientsLoading ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--app-text-muted)' }}>
             Ładowanie...
           </div>
         ) : clients.length === 0 ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--app-text-muted)' }}>
             Brak klientów
           </div>
         ) : (
@@ -2649,9 +2636,9 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                 key={client.id}
                 style={{
                   padding: '16px',
-                  background: isDark ? '#1a1a1a' : '#F9FAFB',
+                  background: 'var(--app-card-alt)',
                   borderRadius: '8px',
-                  border: '1px solid #2a2a2a',
+                  border: '1px solid var(--app-border)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '16px'
@@ -2669,7 +2656,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                             height: '60px',
                             borderRadius: '4px',
                             objectFit: 'cover',
-                            border: '2px solid #d22f27'
+                            border: '2px solid var(--app-accent)'
                           }}
                         />
                       ) : (
@@ -2677,20 +2664,20 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                           width: '60px',
                           height: '60px',
                           borderRadius: '4px',
-                          background: '#2a2a2a',
+                          background: 'var(--app-card)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          border: '2px dashed #888'
+                          border: '2px dashed var(--app-border)'
                         }}>
-                          <User size={24} color="#888" />
+                          <User size={24} style={{ color: 'var(--app-text-muted)' }} />
                         </div>
                       )}
                       <label style={{
                         position: 'absolute',
                         bottom: '-8px',
                         right: '-8px',
-                        background: '#d22f27',
+                        background: 'var(--app-accent)',
                         borderRadius: '50%',
                         width: '24px',
                         height: '24px',
@@ -2698,9 +2685,9 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        border: '2px solid #141414'
+                        border: '2px solid var(--app-bg)'
                       }}>
-                        <Upload size={12} color="white" />
+                        <Upload size={12} style={{ color: 'var(--app-accent-foreground)' }} />
                         <input
                           type="file"
                           accept="image/*"
@@ -2721,9 +2708,9 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                           width: '100%',
                           padding: '8px 12px',
                           fontSize: '15px',
-                          background: '#1a1a1a',
-                          color: '#ffffff',
-                          border: '1px solid #d22f27',
+                          background: 'var(--app-card)',
+                          color: 'var(--app-text)',
+                          border: '1px solid var(--app-accent)',
                           borderRadius: '4px',
                           outline: 'none'
                         }}
@@ -2737,9 +2724,9 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                           width: '100%',
                           padding: '8px 12px',
                           fontSize: '15px',
-                          background: '#1a1a1a',
-                          color: '#ffffff',
-                          border: '1px solid #d22f27',
+                          background: 'var(--app-card)',
+                          color: 'var(--app-text)',
+                          border: '1px solid var(--app-accent)',
                           borderRadius: '4px',
                           outline: 'none'
                         }}
@@ -2794,19 +2781,19 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                         width: '60px',
                         height: '60px',
                         borderRadius: '4px',
-                        background: '#d22f27',
+                        background: 'var(--app-accent)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: '20px',
                         fontWeight: '600',
-                        color: '#ffffff'
+                        color: 'var(--app-accent-foreground)'
                       }}>
                         {client.name.charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '15px', fontWeight: '600', color: isDark ? '#F9FAFB' : '#1F2937' }}>
+                      <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--app-text)' }}>
                         {client.name}
                       </div>
                     </div>
@@ -2815,15 +2802,19 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                       style={{
                         padding: '6px 12px',
                         background: 'transparent',
-                        color: '#d22f27',
-                        border: '1px solid #d22f27',
+                        color: 'var(--app-accent)',
+                        border: '1px solid var(--app-accent)',
                         borderRadius: '4px',
                         fontSize: '13px',
                         fontWeight: '600',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        whiteSpace: 'nowrap'
                       }}
                     >
-                      <Edit2 size={14} color="#d22f27" />
+                      <Edit2 size={14} style={{ color: 'var(--app-accent)', flexShrink: 0 }} />
                       Edytuj
                     </button>
                     <button
@@ -2836,10 +2827,14 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                         borderRadius: '4px',
                         fontSize: '13px',
                         fontWeight: '600',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        whiteSpace: 'nowrap'
                       }}
                     >
-                      <Trash2 size={14} color="#EF4444" />
+                      <Trash2 size={14} color="#EF4444" style={{ flexShrink: 0 }} />
                       Usuń
                     </button>
                   </>

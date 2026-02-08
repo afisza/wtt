@@ -17,7 +17,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
   const [isRegisterMode, setIsRegisterMode] = useState(false)
   const router = useRouter()
   const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const isDark = theme === 'dark' // do ewentualnego użycia
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,8 +74,8 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
   }
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-[#141414] p-4">
-      <div className="bg-[#141414] p-6 rounded border border-[#2a2a2a] w-full max-w-[340px]">
+    <div className="flex justify-center items-center min-h-screen p-4" style={{ background: 'var(--app-bg)' }}>
+      <div className="p-6 rounded border w-full max-w-[340px]" style={{ background: 'var(--app-card)', borderColor: 'var(--app-border)' }}>
         <div className="text-center mb-5">
           <img 
             src="/logo.png" 
@@ -83,10 +83,10 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             className="w-9 h-9 rounded mx-auto mb-2 object-contain"
             style={{ borderRadius: '3px' }}
           />
-          <h1 className="text-sm font-semibold text-white mb-1.5">
+          <h1 className="text-sm font-semibold mb-1.5" style={{ color: 'var(--app-text)' }}>
             Afisza Time Tracker
           </h1>
-          <p className="text-[#888] text-[10px]">
+          <p className="text-[10px]" style={{ color: 'var(--app-text-muted)' }}>
             {isRegisterMode ? 'Utwórz nowe konto' : 'Zaloguj się do swojego konta'}
           </p>
         </div>
@@ -98,11 +98,12 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
               setIsRegisterMode(false)
               setError('')
             }}
-            className={`flex-1 py-1.5 rounded text-[10px] font-medium transition-colors ${
-              !isRegisterMode
-                ? 'bg-[#d22f27] text-white'
-                : 'bg-[#1a1a1a] text-[#888] border border-[#2a2a2a] hover:bg-[#2a2a2a]'
-            }`}
+            className="flex-1 py-1.5 rounded text-[10px] font-medium transition-colors border"
+            style={{
+              background: !isRegisterMode ? 'var(--app-accent)' : 'var(--app-card-alt)',
+              color: !isRegisterMode ? 'var(--app-accent-foreground)' : 'var(--app-text-muted)',
+              borderColor: 'var(--app-border)'
+            }}
           >
             Logowanie
           </button>
@@ -112,11 +113,12 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
               setIsRegisterMode(true)
               setError('')
             }}
-            className={`flex-1 py-1.5 rounded text-[10px] font-medium transition-colors ${
-              isRegisterMode
-                ? 'bg-[#d22f27] text-white'
-                : 'bg-[#1a1a1a] text-[#888] border border-[#2a2a2a] hover:bg-[#2a2a2a]'
-            }`}
+            className="flex-1 py-1.5 rounded text-[10px] font-medium transition-colors border"
+            style={{
+              background: isRegisterMode ? 'var(--app-accent)' : 'var(--app-card-alt)',
+              color: isRegisterMode ? 'var(--app-accent-foreground)' : 'var(--app-text-muted)',
+              borderColor: 'var(--app-border)'
+            }}
           >
             Rejestracja
           </button>
@@ -124,7 +126,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block mb-1 font-medium text-white text-[10px]">
+            <label className="block mb-1 font-medium text-[10px]" style={{ color: 'var(--app-text)' }}>
               Email
             </label>
             <input
@@ -133,12 +135,17 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="twoj@email.pl"
-              className="w-full px-2 py-1.5 border border-[#2a2a2a] rounded text-xs bg-[#1a1a1a] text-white focus:border-[#d22f27] focus:bg-[#1f1f1f] transition-colors"
+              className="w-full px-2 py-1.5 border rounded text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0"
+              style={{
+                borderColor: 'var(--app-border)',
+                background: 'var(--app-card-alt)',
+                color: 'var(--app-text)'
+              }}
             />
           </div>
 
           <div className="mb-4">
-            <label className="block mb-1 font-medium text-white text-[10px]">
+            <label className="block mb-1 font-medium text-[10px]" style={{ color: 'var(--app-text)' }}>
               Hasło
             </label>
             <input
@@ -147,12 +154,17 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="••••••••"
-              className="w-full px-2 py-1.5 border border-[#2a2a2a] rounded text-xs bg-[#1a1a1a] text-white focus:border-[#d22f27] focus:bg-[#1f1f1f] transition-colors"
+              className="w-full px-2 py-1.5 border rounded text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0"
+              style={{
+                borderColor: 'var(--app-border)',
+                background: 'var(--app-card-alt)',
+                color: 'var(--app-text)'
+              }}
             />
           </div>
 
           {error && (
-            <div className="text-[#d22f27] mb-3 px-2 py-1.5 bg-[#1a1a1a] rounded border border-[#d22f27] text-[10px]">
+            <div className="mb-3 px-2 py-1.5 rounded border text-[10px]" style={{ color: 'var(--app-accent)', background: 'var(--app-card-alt)', borderColor: 'var(--app-accent)' }}>
               {error}
             </div>
           )}
@@ -160,11 +172,10 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-2 rounded text-xs font-medium transition-colors ${
-              loading 
-                ? 'bg-[#2a2a2a] cursor-not-allowed' 
-                : 'bg-[#d22f27] hover:bg-[#b0251f] cursor-pointer'
-            } text-white`}
+            className="w-full py-2 rounded text-xs font-medium transition-colors text-white disabled:cursor-not-allowed"
+            style={{
+              background: loading ? 'var(--app-border)' : 'var(--app-accent)'
+            }}
           >
             {loading 
               ? (isRegisterMode ? 'Rejestrowanie...' : 'Logowanie...') 
@@ -173,18 +184,10 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
           </button>
         </form>
 
-        {!isRegisterMode && (
-          <div className="mt-4 text-center text-[9px] text-[#888] px-2 py-2 bg-[#1a1a1a] rounded border border-[#2a2a2a]">
-            <p className="mb-1 font-medium text-white">Domyślne dane logowania:</p>
-            <p className="mb-0.5">Email: <strong className="text-[#d22f27]">admin@wtt.pl</strong></p>
-            <p>Hasło: <strong className="text-[#d22f27]">admin123</strong></p>
-          </div>
-        )}
-        
         {isRegisterMode && (
-          <div className="mt-4 text-center text-[9px] text-[#888] px-2 py-2 bg-[#1a1a1a] rounded border border-[#2a2a2a]">
-            <p className="mb-1 font-medium text-white">Uwaga:</p>
-            <p className="text-[#888]">Rejestracja wymaga skonfigurowanej bazy danych MySQL. Skonfiguruj bazę w ustawieniach aplikacji.</p>
+          <div className="mt-4 text-center text-[9px] px-2 py-2 rounded border" style={{ color: 'var(--app-text-muted)', background: 'var(--app-card-alt)', borderColor: 'var(--app-border)' }}>
+            <p className="mb-1 font-medium" style={{ color: 'var(--app-text)' }}>Uwaga:</p>
+            <p style={{ color: 'var(--app-text-muted)' }}>Rejestracja wymaga skonfigurowanej bazy danych MySQL. Skonfiguruj bazę w ustawieniach aplikacji.</p>
           </div>
         )}
       </div>

@@ -24,9 +24,24 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# local env files (never commit secrets)
 .env*.local
 .env
+.env.production
+.env.development
+
+# local/sensitive data (DB config, user data – use .env + MySQL in production)
+data/db-config.json
+data/db-config.json.backup
+data/storage-mode.json
+data/work-time.json
+data/assigners.json
+data/clients.json
+data/Untitled
+
+# uploaded avatars (user content – regenerate on deploy)
+public/avatars/*
+!public/avatars/.gitkeep
 
 # vercel
 .vercel

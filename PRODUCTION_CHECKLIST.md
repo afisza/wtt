@@ -181,3 +181,4 @@ Wszystkie funkcjonalności działają z MySQL. Musisz tylko:
 2. Utworzyć strukturę bazy danych
 3. Uruchomić migrację danych
 4. Przetestować w środowisku produkcyjnym
+
