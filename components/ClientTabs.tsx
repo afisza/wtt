@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, X, Globe, Search, XCircle } from 'lucide-react'
 import CalendarTable from './CalendarTable'
 import { format, parse, isValid } from 'date-fns'
-import { basePath } from '@/lib/apiBase'
+import { basePath, assetUrl } from '@/lib/apiBase'
 
 interface Client {
   id: number
@@ -150,7 +150,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
 
     setSearchLoading(true)
     try {
-      const url = `/api/search-tasks?q=${encodeURIComponent(trimmedQuery)}&clientId=${activeClientId}`
+      const url = `${basePath}/api/search-tasks?q=${encodeURIComponent(trimmedQuery)}&clientId=${activeClientId}`
       console.log('[SEARCH] Fetching:', url)
       
       const response = await fetch(url, {
@@ -364,7 +364,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
           >
             {client.logo && !failedLogos.has(client.logo) ? (
               <img
-                src={client.logo}
+                src={assetUrl(client.logo)}
                 alt={client.name}
                 style={{
                   width: '18px',

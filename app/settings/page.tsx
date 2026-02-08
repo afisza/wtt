@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import React from 'react'
 import Cookies from 'js-cookie'
-import { basePath } from '@/lib/apiBase'
+import { basePath, assetUrl } from '@/lib/apiBase'
 import { useTheme } from '@/contexts/ThemeContext'
 import { Plus, Edit2, Trash2, Upload, X, Check, User, Settings, Sun, Moon, CheckCircle2, XCircle, Info, AlertTriangle } from 'lucide-react'
 
@@ -1867,7 +1867,7 @@ const SettingsPage = (): JSX.Element | null => {
                 <div style={{ position: 'relative' }}>
                   {newAssignerAvatar ? (
                     <img
-                      src={newAssignerAvatar}
+                      src={assetUrl(newAssignerAvatar)}
                       alt="Preview"
                       style={{
                         width: '60px',
@@ -2064,7 +2064,7 @@ const SettingsPage = (): JSX.Element | null => {
                     <div style={{ position: 'relative' }}>
                       {assigner.avatar ? (
                         <img
-                          src={assigner.avatar}
+                          src={assetUrl(assigner.avatar)}
                           alt={assigner.name}
                           style={{
                             width: '60px',
@@ -2487,7 +2487,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
           <div style={{ position: 'relative' }}>
             {newClientLogo ? (
               <img
-                src={newClientLogo}
+                src={assetUrl(newClientLogo)}
                 alt="Preview"
                 style={{
                   width: '60px',
@@ -2650,7 +2650,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                     <div style={{ position: 'relative' }}>
                       {editingClientLogo ? (
                         <img
-                          src={editingClientLogo}
+                          src={assetUrl(editingClientLogo)}
                           alt="Preview"
                           style={{
                             width: '60px',
@@ -2768,7 +2768,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
                   <>
                     {client.logo ? (
                       <img
-                        src={client.logo}
+                        src={assetUrl(client.logo)}
                         alt={client.name}
                         style={{
                           width: '60px',

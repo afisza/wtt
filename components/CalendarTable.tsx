@@ -10,7 +10,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { FileText, Loader2 } from 'lucide-react'
 import { robotoFontBase64, robotoFontName } from '@/lib/roboto-font'
-import { basePath } from '@/lib/apiBase'
+import { basePath, assetUrl } from '@/lib/apiBase'
 
 interface DayData {
   date: string
@@ -1000,7 +1000,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
                             >
                               {assigner?.avatar && !failedAvatars.has(assigner.avatar) ? (
                                 <img
-                                  src={assigner.avatar}
+                                  src={assetUrl(assigner.avatar)}
                                   alt={assigner.name}
                                   style={{
                                     width: '18px',

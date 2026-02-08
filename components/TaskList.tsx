@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Edit2, Trash2, Plus, X, Check, Clock } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
-import { basePath } from '@/lib/apiBase'
+import { basePath, assetUrl } from '@/lib/apiBase'
 
 // Funkcja do wykrywania i renderowania linków w tekście
 const renderTextWithLinks = (text: string) => {
@@ -493,7 +493,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                           >
                             {assigner?.avatar && !failedAvatars.has(assigner.avatar) ? (
                               <img
-                                src={assigner.avatar}
+                                src={assetUrl(assigner.avatar)}
                                 alt={name}
                                 style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
                                 onError={() => {
@@ -621,7 +621,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                             >
                               {assigner.avatar && !failedAvatars.has(assigner.avatar) ? (
                                 <img
-                                  src={assigner.avatar}
+                                  src={assetUrl(assigner.avatar)}
                                   alt={assigner.name}
                                   style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
                                   onError={() => {
@@ -938,7 +938,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                         >
                           {assigner?.avatar && !failedAvatars.has(assigner.avatar) ? (
                             <img
-                              src={assigner.avatar}
+                              src={assetUrl(assigner.avatar)}
                               alt={name}
                               style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
                               onError={() => {
@@ -1066,7 +1066,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                           >
                             {assigner.avatar && !failedAvatars.has(assigner.avatar) ? (
                               <img
-                                src={assigner.avatar}
+                                src={assetUrl(assigner.avatar)}
                                 alt={assigner.name}
                                 style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
                                 onError={() => {
