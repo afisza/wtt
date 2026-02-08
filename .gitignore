@@ -44,6 +44,9 @@ data/Untitled
 public/avatars/*
 !public/avatars/.gitkeep
 
+# task attachments (user uploads)
+public/task-attachments/
+
 # vercel
 .vercel
 

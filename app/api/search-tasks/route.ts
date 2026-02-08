@@ -80,18 +80,22 @@ export async function GET(request: NextRequest) {
         // Wyszukaj zadania w bazie danych
         // assigned_by może być JSON array lub zwykłym stringiem
         // Używamy LIKE dla obu przypadków - dla JSON array szukamy w całym stringu JSON
-        const tasks = await query(
-          `SELECT 
-            t.id,
-            t.description,
-            t.assigned_by,
-            COALESCE(t.start_time, '08:00:00') as start_time,
-            COALESCE(t.end_time, '16:00:00') as end_time,
-            COALESCE(t.status, 'do zrobienia') as status,
-            wd.date,
-            wd.user_id,
-            wd.client_id
-          FROM tasks t
+        let tasks: any[]
+        try {
+          tasks = await query(
+            `SELECT 
+              t.id,
+              t.task_uid,
+              t.description,
+              t.assigned_by,
+              t.attachments,
+              COALESCE(t.start_time, '08:00:00') as start_time,
+              COALESCE(t.end_time, '16:00:00') as end_time,
+              COALESCE(t.status, 'do zrobienia') as status,
+              wd.date,
+              wd.user_id,
+              wd.client_id
+            FROM tasks t
           INNER JOIN work_days wd ON t.work_day_id = wd.id
           WHERE wd.user_id = ? 
             AND wd.client_id = ?
@@ -103,6 +107,32 @@ export async function GET(request: NextRequest) {
           LIMIT 100`,
           [userId, clientId, searchPattern, searchPattern]
         ) as any[]
+        } catch (e: any) {
+          if (e?.code === 'ER_BAD_FIELD_ERROR') {
+            tasks = await query(
+              `SELECT 
+                t.id,
+                t.description,
+                t.assigned_by,
+                COALESCE(t.start_time, '08:00:00') as start_time,
+                COALESCE(t.end_time, '16:00:00') as end_time,
+                COALESCE(t.status, 'do zrobienia') as status,
+                wd.date,
+                wd.user_id,
+                wd.client_id
+              FROM tasks t
+              INNER JOIN work_days wd ON t.work_day_id = wd.id
+              WHERE wd.user_id = ? AND wd.client_id = ?
+              AND (t.description LIKE ? OR t.assigned_by LIKE ?)
+              ORDER BY wd.date DESC, COALESCE(t.start_time, '08:00:00') ASC
+              LIMIT 100`,
+              [userId, clientId, searchPattern, searchPattern]
+            ) as any[]
+            tasks = tasks.map((t: any) => ({ ...t, task_uid: null, attachments: null }))
+          } else {
+            throw e
+          }
+        }
 
         console.log(`[SEARCH] Found ${tasks.length} tasks from MySQL`)
 
@@ -170,14 +200,23 @@ export async function GET(request: NextRequest) {
             dateKey = dateStr.substring(0, 10)
           }
 
+          let attachments: string[] = []
+          if (task.attachments) {
+            try {
+              const a = typeof task.attachments === 'string' ? JSON.parse(task.attachments) : task.attachments
+              if (Array.isArray(a)) attachments = a
+            } catch (_) {}
+          }
           results.push({
             date: dateKey,
             task: {
+              id: task.task_uid ? String(task.task_uid) : String(task.id ?? ''),
               text: task.description || '',
               assignedBy: assignedBy,
               startTime: startTime,
               endTime: endTime,
-              status: task.status || 'do zrobienia'
+              status: task.status || 'do zrobienia',
+              attachments
             }
           })
         }

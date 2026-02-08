@@ -7,12 +7,14 @@ if (typeof process !== 'undefined' && !process.env.TZ) {
 }
 
 export interface Task {
+  id?: string        // Unikalny 6-cyfrowy task_uid
   text: string
-  assignedBy: string[]  // Kto zlecił zadanie (może być wiele osób)
-  startTime: string  // Format: HH:MM
-  endTime: string    // Format: HH:MM
-  completed?: boolean // Czy zadanie zostało wykonane (deprecated - użyj status)
-  status?: string    // Status zadania: 'wykonano' | 'w trakcie' | 'do zrobienia' | 'anulowane'
+  assignedBy: string[]
+  startTime: string
+  endTime: string
+  completed?: boolean
+  status?: string
+  attachments?: string[]
 }
 
 export interface DayData {
@@ -27,7 +29,7 @@ function normalizeTasks(tasks: any): Task[] {
   if (Array.isArray(tasks)) {
     return tasks.map(task => {
       if (typeof task === 'string') {
-        return { text: task, assignedBy: [], startTime: '08:00', endTime: '16:00', status: 'do zrobienia' }
+        return { text: task, assignedBy: [], startTime: '08:00', endTime: '16:00', status: 'do zrobienia', attachments: [] }
       }
       // Konwertuj completed na status jeśli status nie istnieje
       let status = task.status
@@ -47,12 +49,14 @@ function normalizeTasks(tasks: any): Task[] {
         }
       }
       return {
+        id: task.id,
         text: task.text || '',
         assignedBy: assignedBy,
         startTime: task.startTime || '08:00',
         endTime: task.endTime || '16:00',
         status: status,
-        completed: task.completed || false // Zachowaj dla kompatybilności wstecznej
+        completed: task.completed || false,
+        attachments: task.attachments || []
       }
     })
   }
@@ -78,10 +82,15 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
     return {}
   }
 
-  // Upewnij się, że kolumna status istnieje przed odczytem
   await ensureStatusColumnExists()
+  await ensureTaskUidAndAttachmentsColumnsExist()
 
   try {
+    const existingTaskUids = new Set<string>()
+    try {
+      const existing = await query(`SELECT task_uid FROM tasks WHERE task_uid IS NOT NULL`) as any[]
+      existing.forEach((r: any) => { if (r?.task_uid) existingTaskUids.add(String(r.task_uid)) })
+    } catch (_) { /* kolumna task_uid może nie istnieć w starych bazach */ }
     const [year, month] = monthKey.split('-').map(Number)
     const startDate = `${year}-${month.toString().padStart(2, '0')}-01`
     // Ostatni dzień miesiąca
@@ -128,16 +137,22 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
         }
       }
 
-      // Pobierz zadania (obsługa przypadku gdy kolumny mogą nie istnieć)
       let tasks: any[] = []
       try {
-        // Spróbuj pobrać wszystkie kolumny (start_time, end_time, assigned_by, status, completed)
         tasks = await query(
-          `SELECT description, assigned_by, start_time, end_time, status, completed FROM tasks 
+          `SELECT id, task_uid, description, assigned_by, start_time, end_time, status, completed, attachments FROM tasks 
            WHERE work_day_id = ? ORDER BY created_at`,
           [workDay.id]
         ) as any[]
       } catch (error: any) {
+        try {
+        tasks = await query(
+          `SELECT id, description, assigned_by, start_time, end_time, status, completed FROM tasks 
+           WHERE work_day_id = ? ORDER BY created_at`,
+          [workDay.id]
+        ) as any[]
+        tasks = tasks.map((t: any) => ({ ...t, task_uid: null, attachments: null }))
+      } catch (fallbackErr: any) {
         // Jeśli kolumny nie istnieją, spróbuj pobrać bez status/completed
         try {
           tasks = await query(
@@ -146,6 +161,9 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
             [workDay.id]
           ) as any[]
           tasks = tasks.map((t: any) => ({
+            id: null,
+            task_uid: null,
+            attachments: null,
             description: t.description,
             assigned_by: t.assigned_by || '',
             start_time: t.start_time || null,
@@ -154,7 +172,6 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
             completed: false
           }))
         } catch (innerError: any) {
-          // Jeśli tylko description istnieje
           try {
             const tasksDescriptionOnly = await query(
               `SELECT description FROM tasks 
@@ -162,17 +179,34 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
               [workDay.id]
             ) as any[]
             tasks = tasksDescriptionOnly.map((t: any) => ({
+              id: null,
+              task_uid: null,
+              attachments: null,
               description: t.description,
               assigned_by: '',
               start_time: null,
               end_time: null,
-              status: t.status || 'do zrobienia',
+              status: 'do zrobienia',
               completed: false
             }))
           } catch (finalError) {
-            // Jeśli tabela nie istnieje, zwróć pustą tablicę
             tasks = []
           }
+        }
+      }
+
+      for (const t of tasks) {
+        if (!t.task_uid || t.task_uid === '') {
+          const generated = generateTaskIdInDb(existingTaskUids)
+          existingTaskUids.add(generated)
+          if (t.id) {
+            try {
+              await query(`UPDATE tasks SET task_uid = ?, attachments = COALESCE(attachments, '[]') WHERE id = ?`, [generated, t.id])
+            } catch (_) {
+              await query(`UPDATE tasks SET task_uid = ? WHERE id = ?`, [generated, t.id])
+            }
+          }
+          t.task_uid = generated
         }
       }
 
@@ -227,13 +261,25 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
           }
         }
         
+        let attachments: string[] = []
+        if (t.attachments) {
+          if (Array.isArray(t.attachments)) attachments = t.attachments
+          else if (typeof t.attachments === 'string') {
+            try {
+              const parsed = JSON.parse(t.attachments)
+              if (Array.isArray(parsed)) attachments = parsed
+            } catch (_) {}
+          }
+        }
         return {
+          id: String(t.task_uid || ''),
           text: t.description || '',
           assignedBy: assignedBy,
           startTime,
           endTime,
           status: status,
-          completed: t.completed === 1 || t.completed === true || false // Zachowaj dla kompatybilności
+          completed: t.completed === 1 || t.completed === true || false,
+          attachments
         }
       })
 
@@ -297,21 +343,16 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
 // Funkcja pomocnicza do sprawdzania i dodawania kolumny status jeśli nie istnieje
 async function ensureStatusColumnExists(): Promise<void> {
   try {
-    // Sprawdź czy kolumna status istnieje
     const [columns]: any[] = await query(
       `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
        WHERE TABLE_SCHEMA = DATABASE() 
        AND TABLE_NAME = 'tasks' 
        AND COLUMN_NAME = 'status'`
     ) as any[]
-    
     if (!columns || columns.length === 0) {
-      // Dodaj kolumnę status
       await query(
         `ALTER TABLE tasks ADD COLUMN status VARCHAR(50) DEFAULT 'do zrobienia' AFTER assigned_by`
       )
-      
-      // Zaktualizuj istniejące rekordy - konwertuj completed na status
       await query(
         `UPDATE tasks 
          SET status = CASE 
@@ -321,15 +362,54 @@ async function ensureStatusColumnExists(): Promise<void> {
          END
          WHERE status IS NULL OR status = ''`
       )
-      
       console.log('Column status added to tasks table')
     }
   } catch (error: any) {
-    // Jeśli tabela nie istnieje lub jest inny błąd, zignoruj
     if (error.code !== 'ER_NO_SUCH_TABLE' && !error.message?.includes("doesn't exist")) {
       console.error('Error checking/adding status column:', error)
     }
   }
+}
+
+// Dodaj task_uid i attachments jeśli nie istnieją
+async function ensureTaskUidAndAttachmentsColumnsExist(): Promise<void> {
+  try {
+    const [cols]: any[] = await query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tasks' 
+       AND COLUMN_NAME IN ('task_uid', 'attachments')`
+    ) as any[]
+    const names = (cols || []).map((c: any) => c.COLUMN_NAME)
+    if (!names.includes('task_uid')) {
+      await query(`ALTER TABLE tasks ADD COLUMN task_uid VARCHAR(12) NULL AFTER id`)
+      console.log('Column task_uid added to tasks table')
+    }
+    if (!names.includes('attachments')) {
+      await query(`ALTER TABLE tasks ADD COLUMN attachments JSON NULL AFTER status`)
+      console.log('Column attachments added to tasks table')
+    }
+  } catch (error: any) {
+    if (error.code !== 'ER_NO_SUCH_TABLE' && !error.message?.includes("doesn't exist")) {
+      console.error('Error ensuring task_uid/attachments columns:', error)
+    }
+  }
+}
+
+function generateTaskIdInDb(existingIds: Set<string>): string {
+  const min = 100000
+  const max = 999999
+  let id: string
+  let attempts = 0
+  do {
+    id = (Math.floor(Math.random() * (max - min + 1)) + min).toString()
+    attempts++
+    if (attempts > 500) {
+      id = (Date.now() % 900000 + 100000).toString()
+      while (existingIds.has(id)) id = (parseInt(id, 10) + 1).toString()
+      break
+    }
+  } while (existingIds.has(id))
+  return id
 }
 
 // Zapisz dane dla miesiąca
@@ -338,8 +418,8 @@ export async function saveMonthData(userId: number, monthKey: string, daysData: 
     throw new Error('MySQL not available')
   }
 
-  // Upewnij się, że kolumna status istnieje przed zapisem
   await ensureStatusColumnExists()
+  await ensureTaskUidAndAttachmentsColumnsExist()
 
   try {
     for (const [dateKey, dayData] of Object.entries(daysData)) {
@@ -381,20 +461,28 @@ export async function saveMonthData(userId: number, monthKey: string, daysData: 
         const normalizedTasks = normalizeTasks([task])
         if (normalizedTasks.length > 0 && normalizedTasks[0].text.trim()) {
           const taskData = normalizedTasks[0]
-          try {
-            // Spróbuj wstawić z wszystkimi kolumnami (start_time, end_time, assigned_by, status)
+            const taskUid = (taskData as any).id || ''
+            const attachmentsJson = JSON.stringify(Array.isArray((taskData as any).attachments) ? (taskData as any).attachments : [])
+            try {
             const taskStatus = taskData.status || (taskData.completed ? 'wykonano' : 'do zrobienia')
-            // Zapisz assignedBy jako JSON array
             const assignedByJson = Array.isArray(taskData.assignedBy) && taskData.assignedBy.length > 0
               ? JSON.stringify(taskData.assignedBy)
               : ''
             await query(
-              `INSERT INTO tasks (work_day_id, description, assigned_by, start_time, end_time, status, completed) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [workDayId, taskData.text, assignedByJson, taskData.startTime || '08:00', taskData.endTime || '16:00', taskStatus, taskData.completed ? 1 : 0]
+              `INSERT INTO tasks (work_day_id, task_uid, description, assigned_by, start_time, end_time, status, completed, attachments) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [workDayId, taskUid, taskData.text, assignedByJson, taskData.startTime || '08:00', taskData.endTime || '16:00', taskStatus, taskData.completed ? 1 : 0, attachmentsJson]
             )
           } catch (error: any) {
-            // Jeśli kolumna status nie istnieje, spróbuj z completed
-            if (error.code === 'ER_BAD_FIELD_ERROR' && error.message?.includes('status')) {
+            if (error.code === 'ER_BAD_FIELD_ERROR' && (error.message?.includes('task_uid') || error.message?.includes('attachments'))) {
+              try {
+                const taskStatus = taskData.status || (taskData.completed ? 'wykonano' : 'do zrobienia')
+                const assignedByJson = Array.isArray(taskData.assignedBy) && taskData.assignedBy.length > 0 ? JSON.stringify(taskData.assignedBy) : ''
+                await query(
+                  `INSERT INTO tasks (work_day_id, description, assigned_by, start_time, end_time, status, completed) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                  [workDayId, taskData.text, assignedByJson, taskData.startTime || '08:00', taskData.endTime || '16:00', taskStatus, taskData.completed ? 1 : 0]
+                )
+              } catch (_) { throw error }
+            } else if (error.code === 'ER_BAD_FIELD_ERROR' && error.message?.includes('status')) {
               try {
                 const taskStatus = taskData.status || (taskData.completed ? 'wykonano' : 'do zrobienia')
                 const assignedByJson = Array.isArray(taskData.assignedBy) && taskData.assignedBy.length > 0

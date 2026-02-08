@@ -147,23 +147,21 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
           if (dayData.tasks && Array.isArray(dayData.tasks)) {
             normalizedTasks = dayData.tasks.map((task: any) => {
               if (typeof task === 'string') {
-                return { text: task, assignedBy: [], startTime: '08:00', endTime: '16:00', status: 'do zrobienia' as const }
+                return { id: '', text: task, assignedBy: [], startTime: '08:00', endTime: '16:00', status: 'do zrobienia' as const, attachments: [] }
               }
-              // Normalizuj assignedBy - może być string (stary format) lub string[] (nowy format)
               let assignedBy: string[] = []
               if (task.assignedBy) {
-                if (Array.isArray(task.assignedBy)) {
-                  assignedBy = task.assignedBy
-                } else if (typeof task.assignedBy === 'string' && task.assignedBy.trim()) {
-                  assignedBy = [task.assignedBy]
-                }
+                if (Array.isArray(task.assignedBy)) assignedBy = task.assignedBy
+                else if (typeof task.assignedBy === 'string' && task.assignedBy.trim()) assignedBy = [task.assignedBy]
               }
               return {
+                id: task.id ?? '',
                 text: task.text || '',
-                assignedBy: assignedBy,
+                assignedBy,
                 startTime: task.startTime || '08:00',
                 endTime: task.endTime || '16:00',
-                status: task.status || (task.completed ? 'wykonano' : 'do zrobienia')
+                status: (task.status || (task.completed ? 'wykonano' : 'do zrobienia')) as Task['status'],
+                attachments: Array.isArray(task.attachments) ? task.attachments : []
               }
             })
           }

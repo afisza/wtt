@@ -418,6 +418,18 @@ Certbot sam skonfiguruje Nginx pod HTTPS.
 
 ---
 
+## Backup danych aplikacji
+
+Przy regularnym back upie serwera lub bazy warto uwzględnić też pliki wygenerowane przez aplikację:
+
+- **`data/`** – konfiguracja bazy, tryb storage (jeśli nie używasz wyłącznie MySQL).
+- **`public/avatars/`** – awatary zleceniodawców (uploadowane w aplikacji).
+- **`public/task-attachments/`** – załączniki do zadań (uploadowane przez użytkowników). Katalog ten jest w `.gitignore`, więc nie trafia do repozytorium – backup trzeba robić osobno (np. `rsync` lub archiwum tego katalogu).
+
+Baza MySQL (tabele `users`, `clients`, `work_days`, `tasks` itd.) – backup standardowo przez `mysqldump` lub narzędzia hostingu.
+
+---
+
 ## Szybka ściągawka – po pierwszej konfiguracji
 
 | Co robisz           | Komenda |

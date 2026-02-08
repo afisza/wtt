@@ -1,15 +1,18 @@
 import fs from 'fs'
 import path from 'path'
+import { generateTaskId } from './taskId'
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'work-time.json')
 
 export interface Task {
+  id?: string
   text: string
-  assignedBy: string[]  // Kto zlecił zadanie (może być wiele osób)
-  startTime: string  // Format: HH:MM
-  endTime: string    // Format: HH:MM
-  completed?: boolean // Czy zadanie zostało wykonane (deprecated - użyj status)
-  status?: string    // Status zadania: 'wykonano' | 'w trakcie' | 'do zrobienia' | 'anulowane'
+  assignedBy: string[]
+  startTime: string
+  endTime: string
+  completed?: boolean
+  status?: string
+  attachments?: string[]
 }
 
 export interface DayData {
@@ -18,38 +21,40 @@ export interface DayData {
   totalHours: string
 }
 
-// Helper function to convert old string[] tasks to Task[]
-function normalizeTasks(tasks: any): Task[] {
+function normalizeTasks(tasks: any, existingIds?: Set<string>): Task[] {
   if (!tasks) return []
+  const ids = existingIds ?? new Set<string>()
   if (Array.isArray(tasks)) {
     return tasks.map(task => {
       if (typeof task === 'string') {
-        return { text: task, assignedBy: [], startTime: '08:00', endTime: '16:00', status: 'do zrobienia' }
+        const id = generateTaskId(ids)
+        ids.add(id)
+        return { id, text: task, assignedBy: [], startTime: '08:00', endTime: '16:00', status: 'do zrobienia', attachments: [] }
       }
-      // Konwertuj completed na status jeśli status nie istnieje
       let status = task.status
       if (!status && task.completed !== undefined) {
         status = task.completed ? 'wykonano' : 'do zrobienia'
       }
-      if (!status) {
-        status = 'do zrobienia'
-      }
-      // Normalizuj assignedBy - może być string (stary format) lub string[] (nowy format)
+      if (!status) status = 'do zrobienia'
       let assignedBy: string[] = []
       if (task.assignedBy) {
-        if (Array.isArray(task.assignedBy)) {
-          assignedBy = task.assignedBy
-        } else if (typeof task.assignedBy === 'string' && task.assignedBy.trim()) {
-          assignedBy = [task.assignedBy]
-        }
+        if (Array.isArray(task.assignedBy)) assignedBy = task.assignedBy
+        else if (typeof task.assignedBy === 'string' && task.assignedBy.trim()) assignedBy = [task.assignedBy]
+      }
+      let id = task.id && String(task.id).replace(/\D/g, '').length >= 6 ? String(task.id) : ''
+      if (!id) {
+        id = generateTaskId(ids)
+        ids.add(id)
       }
       return {
+        id,
         text: task.text || '',
-        assignedBy: assignedBy,
+        assignedBy,
         startTime: task.startTime || '08:00',
         endTime: task.endTime || '16:00',
-        status: status,
-        completed: task.completed || false // Zachowaj dla kompatybilności wstecznej
+        status,
+        completed: task.completed || false,
+        attachments: Array.isArray(task.attachments) ? task.attachments : []
       }
     })
   }
@@ -135,17 +140,21 @@ export function getMonthDataJSON(userId: number, monthKey: string, clientId: num
     const clientData = userData[clientId] || {}
     const monthData = clientData[monthKey] || {}
     
-    // Normalizuj zadania dla każdego dnia i oblicz godziny
+    const existingIds = new Set<string>()
+    for (const dayData of Object.values(monthData)) {
+      const tasks = dayData.tasks || []
+      tasks.forEach((t: any) => { if (t?.id && String(t.id).replace(/\D/g, '').length >= 6) existingIds.add(String(t.id)) })
+    }
     const normalizedData: Record<string, DayData> = {}
     for (const [dateKey, dayData] of Object.entries(monthData)) {
-      const normalizedTasks = normalizeTasks(dayData.tasks || [])
+      const normalizedTasks = normalizeTasks(dayData.tasks || [], existingIds)
+      normalizedTasks.forEach(t => { if (t.id) existingIds.add(t.id) })
       normalizedData[dateKey] = {
         ...dayData,
         tasks: normalizedTasks,
         totalHours: calculateTotalHours(normalizedTasks)
       } as DayData
     }
-    
     return normalizedData
   } catch (error) {
     return {}

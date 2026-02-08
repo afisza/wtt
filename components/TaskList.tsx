@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Edit2, Trash2, Plus, X, Check, Clock, Loader2 } from 'lucide-react'
+import { Edit2, Trash2, Plus, X, Check, Clock, Loader2, FileText, Paperclip, ChevronLeft, ChevronRight, Copy } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 import { useTheme } from '@/contexts/ThemeContext'
 import { Button } from '@/components/ui/button'
+import { generateTaskId } from '@/lib/taskId'
 import { basePath, assetUrl } from '@/lib/apiBase'
 
 /** Wspólny styl karty formularza (shadcn-like) */
@@ -106,11 +107,13 @@ const renderTextWithLinks = (text: string) => {
 export type TaskStatus = 'wykonano' | 'w trakcie' | 'do zrobienia' | 'anulowane' | 'zaplanowano'
 
 export interface Task {
+  id: string           // Unikalny numer 6+ cyfr (tylko cyfry)
   text: string
-  assignedBy: string[]  // Kto zlecił zadanie (może być wiele osób)
+  assignedBy: string[] // Kto zlecił zadanie (może być wiele osób)
   startTime: string   // Format: HH:MM
   endTime: string     // Format: HH:MM
   status: TaskStatus  // Status zadania
+  attachments?: string[] // URL-e załączników
 }
 
 interface TaskListProps {
@@ -145,7 +148,36 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
   const [assignerSearchQuery, setAssignerSearchQuery] = useState('')
   const [editingAssignerSearchQuery, setEditingAssignerSearchQuery] = useState<Record<number, string>>({})
   const [isSaving, setIsSaving] = useState(false)
+  const [editingAttachments, setEditingAttachments] = useState<string[]>([])
+  const [newPendingFiles, setNewPendingFiles] = useState<File[]>([])
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null)
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
   const { showToast } = useToast()
+
+  const deleteTaskAttachment = async (url: string): Promise<void> => {
+    const res = await fetch(`${basePath}/api/task-attachments?url=${encodeURIComponent(url)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error('Błąd usuwania pliku')
+  }
+
+  const uploadTaskAttachment = async (taskId: string, file: File): Promise<string | null> => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('taskId', taskId)
+    const res = await fetch(`${basePath}/api/task-attachments/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data?.error || 'Błąd uploadu')
+    }
+    const data = await res.json()
+    return data?.url ?? null
+  }
 
   useEffect(() => {
     const loadAssigners = async () => {
@@ -175,6 +207,25 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightbox(null) }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [])
+
+  useEffect(() => {
+    if (!lightbox) return
+    const handleArrow = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        setLightbox(prev => prev ? { ...prev, index: Math.max(0, prev.index - 1) } : null)
+      } else if (e.key === 'ArrowRight') {
+        setLightbox(prev => prev ? { ...prev, index: Math.min(prev.urls.length - 1, prev.index + 1) } : null)
+      }
+    }
+    document.addEventListener('keydown', handleArrow)
+    return () => document.removeEventListener('keydown', handleArrow)
+  }, [lightbox])
   
   const getAssignerByName = (name: string) => {
     return assigners.find(a => a.name === name)
@@ -215,22 +266,44 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
   }
 
   const handleAdd = () => {
-    if (newTask.trim()) {
-      setIsSaving(true)
-      onUpdate([...tasks, { 
-        text: newTask.trim(), 
-        assignedBy: newAssignedBy,
-        startTime: newStartTime.trim() || '08:00',
-        endTime: newEndTime.trim() || '16:00',
-        status: newStatus
-      }])
-      showToast('Zadanie zostało dodane', 'success')
+    if (!newTask.trim()) return
+    setIsSaving(true)
+    const existingIds = new Set(tasks.map(t => t.id).filter(Boolean))
+    const id = generateTaskId(existingIds)
+    const newTaskObj: Task = {
+      id,
+      text: newTask.trim(),
+      assignedBy: newAssignedBy,
+      startTime: newStartTime.trim() || '08:00',
+      endTime: newEndTime.trim() || '16:00',
+      status: newStatus,
+      attachments: [],
+    }
+    const files = [...newPendingFiles]
+    setNewPendingFiles([])
+    const clearForm = () => {
       setNewTask('')
       setNewAssignedBy([])
       setNewStartTime('')
       setNewEndTime('')
       setNewStatus('do zrobienia')
       setShowAddForm(false)
+    }
+    if (files.length > 0) {
+      setUploadingAttachment(true)
+      Promise.all(files.slice(0, 10).map(f => uploadTaskAttachment(id, f)))
+        .then(urls => {
+          const valid = urls.filter(Boolean) as string[]
+          onUpdate([...tasks, { ...newTaskObj, attachments: valid }])
+          showToast('Zadanie zostało dodane', 'success')
+          clearForm()
+        })
+        .catch(err => showToast(err?.message || 'Błąd dodawania załączników', 'error'))
+        .finally(() => { setUploadingAttachment(false); setTimeout(() => setIsSaving(false), 500) })
+    } else {
+      onUpdate([...tasks, newTaskObj])
+      showToast('Zadanie zostało dodane', 'success')
+      clearForm()
       setTimeout(() => setIsSaving(false), 1000)
     }
   }
@@ -241,14 +314,13 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
     setNewStartTime('')
     setNewEndTime('')
     setNewStatus('do zrobienia')
+    setNewPendingFiles([])
     setShowAddForm(false)
   }
 
   const handleInlineEdit = (task: Task) => {
-    const originalIndex = tasks.findIndex(t => 
-      t.text === task.text && 
-      t.startTime === task.startTime && 
-      t.endTime === task.endTime &&
+    const originalIndex = task.id ? tasks.findIndex(t => t.id === task.id) : tasks.findIndex(t => 
+      t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime &&
       JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)
     )
     setInlineEditingIndex(originalIndex)
@@ -257,10 +329,8 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
 
   const handleInlineSave = (task: Task) => {
     if (inlineEditingText.trim()) {
-      const originalIndex = tasks.findIndex(t => 
-        t.text === task.text && 
-        t.startTime === task.startTime && 
-        t.endTime === task.endTime &&
+      const originalIndex = task.id ? tasks.findIndex(t => t.id === task.id) : tasks.findIndex(t => 
+        t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime &&
         JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)
       )
       if (originalIndex !== -1) {
@@ -282,10 +352,8 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
   }
 
   const handleEdit = (task: Task) => {
-    const originalIndex = tasks.findIndex(t => 
-      t.text === task.text && 
-      t.startTime === task.startTime && 
-      t.endTime === task.endTime &&
+    const originalIndex = task.id ? tasks.findIndex(t => t.id === task.id) : tasks.findIndex(t => 
+      t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime &&
       JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)
     )
     setEditingIndex(originalIndex)
@@ -294,25 +362,27 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
     setEditingStartTime(task.startTime || '')
     setEditingEndTime(task.endTime || '')
     setEditingStatus(task.status)
+    setEditingAttachments(Array.isArray(task.attachments) ? [...task.attachments] : [])
   }
 
   const handleSave = (task: Task) => {
     if (editingTask.trim()) {
-      const originalIndex = tasks.findIndex(t => 
-        t.text === task.text && 
-        t.startTime === task.startTime && 
-        t.endTime === task.endTime &&
+      const originalIndex = task.id ? tasks.findIndex(t => t.id === task.id) : tasks.findIndex(t => 
+        t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime &&
         JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)
       )
       if (originalIndex !== -1) {
         setIsSaving(true)
         const updated = [...tasks]
+        const existing = updated[originalIndex]
         updated[originalIndex] = { 
+          id: existing.id,
           text: editingTask.trim(), 
           assignedBy: editingAssignedBy,
           startTime: editingStartTime.trim() || '08:00',
           endTime: editingEndTime.trim() || '16:00',
-          status: editingStatus
+          status: editingStatus,
+          attachments: editingAttachments.length ? editingAttachments : (existing.attachments || [])
         }
         onUpdate(updated)
         showToast('Zadanie zostało zaktualizowane', 'success')
@@ -325,17 +395,42 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
     setEditingStartTime('')
     setEditingEndTime('')
     setEditingStatus('do zrobienia')
+    setEditingAttachments([])
   }
 
   const handleDelete = (task: Task) => {
-    const updated = tasks.filter(t => 
-      !(t.text === task.text && 
-        t.startTime === task.startTime && 
-        t.endTime === task.endTime &&
-        JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy))
-    )
+    const updated = task.id
+      ? tasks.filter(t => t.id !== task.id)
+      : tasks.filter(t => !(t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime && JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)))
     onUpdate(updated)
     showToast('Zadanie zostało usunięte', 'success')
+  }
+
+  const addOneHour = (time: string): string => {
+    const [h, m] = (time || '08:00').split(':').map(Number)
+    const next = (h + 1) * 60 + m
+    const hours = Math.floor(next / 60) % 24
+    const mins = next % 60
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+  }
+
+  const handleDuplicate = (task: Task) => {
+    const existingIds = new Set(tasks.map(t => t.id).filter(Boolean))
+    const newId = generateTaskId(existingIds)
+    const duplicate: Task = {
+      id: newId,
+      text: task.text,
+      assignedBy: Array.isArray(task.assignedBy) ? [...task.assignedBy] : [],
+      startTime: addOneHour(task.startTime),
+      endTime: addOneHour(task.endTime),
+      status: task.status,
+      attachments: [],
+    }
+    const idx = task.id ? tasks.findIndex(t => t.id === task.id) : tasks.findIndex(t => t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime && JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy))
+    const insertAt = idx >= 0 ? idx + 1 : tasks.length
+    const updated = [...tasks.slice(0, insertAt), duplicate, ...tasks.slice(insertAt)]
+    onUpdate(updated)
+    showToast('Zadanie skopiowane (+1h)', 'success')
   }
 
   // Sortuj zadania chronologicznie przed renderowaniem
@@ -391,12 +486,9 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
       )}
       {sortedTasks.map((task, index) => {
         // Znajdź oryginalny indeks zadania w nieposortowanej tablicy
-        const originalIndex = tasks.findIndex(t => 
-          t.text === task.text && 
-          t.startTime === task.startTime && 
-          t.endTime === task.endTime &&
-          JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy) &&
-          t.status === task.status
+        const originalIndex = task.id ? tasks.findIndex(t => t.id === task.id) : tasks.findIndex(t => 
+          t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime &&
+          JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy) && t.status === task.status
         )
         const isEditing = editingIndex === originalIndex
         const isInlineEditing = inlineEditingIndex === originalIndex
@@ -404,7 +496,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
 
         return (
           <div 
-            key={index} 
+            key={task.id || index} 
             draggable={!!onDragStart}
             onDragStart={onDragStart ? (e) => onDragStart(e, originalIndex) : undefined}
             onDragEnd={onDragEnd}
@@ -482,6 +574,9 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
               </div>
             ) : isEditing ? (
               <div style={{ flex: 1, ...formCardStyle }}>
+                {task.id ? (
+                  <div style={{ fontSize: '10px', color: 'var(--app-text-muted)', fontWeight: '600', marginBottom: '2px' }}>Zadanie #{task.id}</div>
+                ) : null}
                 <textarea
                   value={editingTask}
                   onChange={(e) => setEditingTask(e.target.value)}
@@ -736,6 +831,88 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     <option key={status} value={status} style={{ background: 'var(--app-card-alt)', color: 'var(--app-text)' }}>{status}</option>
                   ))}
                 </select>
+                <div style={{ marginTop: '6px' }}>
+                  <label style={formLabelStyle}>
+                    <Paperclip size={10} style={{ color: 'var(--app-text-muted)' }} />
+                    Załączniki
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
+                    {editingAttachments.map((url, idx) => {
+                      const isImg = /\.(jpe?g|png|gif|webp)$/i.test(url) || url.includes('/task-attachments/')
+                      return (
+                        <div key={idx} style={{ position: 'relative' }}>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setLightbox({ urls: editingAttachments, index: idx })}
+                            onKeyDown={(e) => e.key === 'Enter' && setLightbox({ urls: editingAttachments, index: idx })}
+                            style={{ width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--app-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--app-card-alt)' }}
+                          >
+                            {isImg ? (
+                              <img src={basePath + url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <FileText size={20} style={{ color: 'var(--app-text-muted)' }} />
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              try {
+                                await deleteTaskAttachment(url)
+                                setEditingAttachments(editingAttachments.filter((_, i) => i !== idx))
+                              } catch (_) {
+                                setEditingAttachments(editingAttachments.filter((_, i) => i !== idx))
+                              }
+                            }}
+                            style={{ position: 'absolute', top: '-4px', right: '-4px', width: '16px', height: '16px', borderRadius: '50%', border: 'none', background: '#EF4444', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: '10px' }}
+                            title="Usuń"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {editingAttachments.length < 10 && (
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.background = 'var(--app-border)' }}
+                      onDragLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        e.currentTarget.style.background = 'transparent'
+                        const files = Array.from(e.dataTransfer.files)
+                        if (!task.id || !files.length) return
+                        setUploadingAttachment(true)
+                        Promise.all(files.slice(0, 10 - editingAttachments.length).map(f => uploadTaskAttachment(task.id, f)))
+                          .then(urls => { setEditingAttachments(prev => [...prev, ...urls.filter(Boolean) as string[]]); showToast('Załącznik dodany', 'success') })
+                          .catch(err => showToast(err?.message || 'Błąd dodawania załącznika', 'error'))
+                          .finally(() => setUploadingAttachment(false))
+                      }}
+                      onClick={() => document.getElementById('edit-attachment-input')?.click()}
+                      style={{ border: '1px dashed var(--app-border)', borderRadius: '6px', padding: '8px', textAlign: 'center', fontSize: '11px', color: 'var(--app-text-muted)', cursor: 'pointer', background: 'transparent' }}
+                    >
+                      <input
+                        id="edit-attachment-input"
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf,.doc,.docx"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const files = e.target.files ? Array.from(e.target.files) : []
+                          e.target.value = ''
+                          if (!task.id || !files.length) return
+                          setUploadingAttachment(true)
+                          Promise.all(files.slice(0, 10 - editingAttachments.length).map(f => uploadTaskAttachment(task.id, f)))
+                            .then(urls => { setEditingAttachments(prev => [...prev, ...urls.filter(Boolean) as string[]]); showToast('Załącznik dodany', 'success') })
+                            .catch(err => showToast(err?.message || 'Błąd dodawania załącznika', 'error'))
+                            .finally(() => setUploadingAttachment(false))
+                        }}
+                      />
+                      {uploadingAttachment ? 'Dodawanie…' : 'Przeciągnij pliki lub kliknij'}
+                    </div>
+                  )}
+                </div>
                 <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                   <Button
                     type="button"
@@ -758,6 +935,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                       setEditingStartTime('')
                       setEditingEndTime('')
                       setEditingStatus('do zrobienia')
+                      setEditingAttachments([])
                     }}
                   >
                     <X size={12} className="mr-1.5" />
@@ -775,45 +953,87 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                   <div style={{ fontSize: '13px', color: 'var(--app-text)', wordBreak: 'break-word', lineHeight: '1.3', marginBottom: '2px' }}>
                     {renderTextWithLinks(task.text)}
                   </div>
-                  <div style={{ fontSize: '10px', color: 'var(--app-text-muted)', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--app-text-muted)', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '3px', marginBottom: (task.attachments?.length ? 4 : 0) }}>
                     <Clock size={11} style={{ color: 'var(--app-text-muted)' }} />
                     {task.startTime || '08:00'} - {task.endTime || '16:00'}
                   </div>
+                  {task.attachments && task.attachments.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                      {task.attachments.slice(0, 5).map((url, idx) => {
+                        const isImg = /\.(jpe?g|png|gif|webp)$/i.test(url) || url.includes('/task-attachments/')
+                        return (
+                          <div
+                            key={idx}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setLightbox({ urls: task.attachments!, index: idx })}
+                            onKeyDown={(e) => e.key === 'Enter' && setLightbox({ urls: task.attachments!, index: idx })}
+                            style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--app-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--app-card-alt)' }}
+                          >
+                            {isImg ? (
+                              <img src={basePath + url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <FileText size={14} style={{ color: 'var(--app-text-muted)' }} />
+                            )}
+                          </div>
+                        )
+                      })}
+                      {task.attachments.length > 5 && (
+                        <span style={{ fontSize: '10px', color: 'var(--app-text-muted)', alignSelf: 'center' }}>+{task.attachments.length - 5}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       handleEdit(task)
                     }}
-                    style={{ padding: '2px', color: '#d22f27', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    style={{ padding: '4px', color: '#d22f27', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
                     title="Edytuj szczegóły"
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = 'var(--app-card)'
-                      e.currentTarget.style.borderRadius = '2px'
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = 'transparent'
                     }}
                   >
-                    <Edit2 size={11} color="#d22f27" />
+                    <Edit2 size={15} color="#d22f27" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDuplicate(task)
+                    }}
+                    style={{ padding: '4px', color: 'var(--app-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
+                    title="Duplikuj (+1h)"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--app-card)'
+                      e.currentTarget.style.color = 'var(--app-text)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = 'var(--app-text-muted)'
+                    }}
+                  >
+                    <Copy size={15} />
                   </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       handleDelete(task)
                     }}
-                    style={{ padding: '2px', color: '#EF4444', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    style={{ padding: '4px', color: '#EF4444', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
                     title="Usuń"
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = 'var(--app-card)'
-                      e.currentTarget.style.borderRadius = '2px'
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = 'transparent'
                     }}
                   >
-                    <Trash2 size={11} color="#EF4444" />
+                    <Trash2 size={15} color="#EF4444" />
                   </button>
                 </div>
               </>
@@ -1120,12 +1340,56 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                   <option key={status} value={status} style={{ background: 'var(--app-card-alt)', color: 'var(--app-text)' }}>{status}</option>
                 ))}
               </select>
+              <div style={{ marginTop: '6px' }}>
+                <label style={formLabelStyle}>
+                  <Paperclip size={10} style={{ color: 'var(--app-text-muted)' }} />
+                  Załączniki (dodane po zapisie)
+                </label>
+                {newPendingFiles.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '4px', fontSize: '11px', color: 'var(--app-text-muted)' }}>
+                    {newPendingFiles.map((f, i) => (
+                      <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 6px', background: 'var(--app-card-alt)', borderRadius: '4px' }}>
+                        {f.name}
+                        <button type="button" onClick={() => setNewPendingFiles(newPendingFiles.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={12} /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {newPendingFiles.length < 10 && (
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.background = 'var(--app-border)' }}
+                    onDragLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.currentTarget.style.background = 'transparent'
+                      setNewPendingFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)].slice(0, 10))
+                    }}
+                    onClick={() => document.getElementById('new-attachment-input')?.click()}
+                    style={{ border: '1px dashed var(--app-border)', borderRadius: '6px', padding: '8px', textAlign: 'center', fontSize: '11px', color: 'var(--app-text-muted)', cursor: 'pointer', background: 'transparent' }}
+                  >
+                    <input
+                      id="new-attachment-input"
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf,.doc,.docx"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const files = e.target.files ? Array.from(e.target.files) : []
+                        e.target.value = ''
+                        setNewPendingFiles(prev => [...prev, ...files].slice(0, 10))
+                      }}
+                    />
+                    Przeciągnij pliki lub kliknij
+                  </div>
+                )}
+              </div>
               <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                 <Button
                   type="button"
                   size="sm"
                   className="flex-1 h-8 text-xs"
                   onClick={handleAdd}
+                  disabled={uploadingAttachment}
                 >
                   <Check size={12} className="mr-1.5" />
                   Zapisz
@@ -1144,6 +1408,59 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
             </div>
           )}
         </>
+      )}
+      {lightbox && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setLightbox(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+        >
+          <button
+            type="button"
+            onClick={() => setLightbox(null)}
+            style={{ position: 'absolute', top: '12px', right: '12px', background: 'var(--app-card)', border: '1px solid var(--app-border)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: 'var(--app-text)', fontSize: '14px' }}
+          >
+            Zamknij
+          </button>
+          {lightbox.urls.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setLightbox(prev => prev && prev.index > 0 ? { ...prev, index: prev.index - 1 } : null) }}
+                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'var(--app-card)', border: '1px solid var(--app-border)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: 'var(--app-text)' }}
+                aria-label="Poprzedni"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setLightbox(prev => prev && prev.index < prev.urls.length - 1 ? { ...prev, index: prev.index + 1 } : null) }}
+                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'var(--app-card)', border: '1px solid var(--app-border)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: 'var(--app-text)' }}
+                aria-label="Następny"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </>
+          )}
+          <div onClick={e => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '90vh', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {(() => {
+              const url = lightbox.urls[lightbox.index]
+              if (!url) return null
+              const isImg = /\.(jpe?g|png|gif|webp)$/i.test(url) || url.includes('/task-attachments/')
+              return isImg ? (
+                <img src={basePath + url} alt="" style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain' }} />
+              ) : (
+                <a href={basePath + url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--app-accent)', fontSize: '16px' }}>Otwórz / Pobierz plik</a>
+              )
+            })()}
+          </div>
+          {lightbox.urls.length > 1 && (
+            <span style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', color: 'var(--app-text-muted)', fontSize: '12px' }}>
+              {lightbox.index + 1} / {lightbox.urls.length}
+            </span>
+          )}
+        </div>
       )}
     </div>
   )
