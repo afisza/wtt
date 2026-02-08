@@ -3,13 +3,15 @@ import './globals.css'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
+
 export const metadata: Metadata = {
   title: 'Afisza Time Tracker',
   description: 'Aplikacja do śledzenia czasu pracy',
   icons: {
-    icon: '/favicon.png',
-    shortcut: '/favicon.png',
-    apple: '/favicon.png',
+    icon: `${basePath}/favicon.png`,
+    shortcut: `${basePath}/favicon.png`,
+    apple: `${basePath}/favicon.png`,
   },
 }
 

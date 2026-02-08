@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import React from 'react'
 import Cookies from 'js-cookie'
+import { basePath } from '@/lib/apiBase'
 import { useTheme } from '@/contexts/ThemeContext'
 import { Plus, Edit2, Trash2, Upload, X, Check, User, Settings, Sun, Moon, CheckCircle2, XCircle, Info, AlertTriangle } from 'lucide-react'
 
@@ -87,7 +88,7 @@ const SettingsPage = (): JSX.Element | null => {
 
   const loadConfig = useCallback(async () => {
     try {
-      const response = await fetch('/api/settings/db-config', {
+      const response = await fetch(`${basePath}/api/settings/db-config`, {
         credentials: 'include',
       })
       if (response.ok) {
@@ -131,7 +132,7 @@ const SettingsPage = (): JSX.Element | null => {
 
       // Weryfikuj token przez API
       try {
-        const response = await fetch('/api/auth/verify', {
+        const response = await fetch(`${basePath}/api/auth/verify`, {
           credentials: 'include',
         })
         
@@ -174,7 +175,7 @@ const SettingsPage = (): JSX.Element | null => {
 
   const loadStorageMode = async () => {
     try {
-      const response = await fetch('/api/settings/storage-mode', {
+      const response = await fetch(`${basePath}/api/settings/storage-mode`, {
         credentials: 'include',
       })
       if (response.ok) {
@@ -188,7 +189,7 @@ const SettingsPage = (): JSX.Element | null => {
 
   const handleStorageModeChange = async (mode: 'mysql' | 'json') => {
     try {
-      const response = await fetch('/api/settings/storage-mode', {
+      const response = await fetch(`${basePath}/api/settings/storage-mode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -215,7 +216,7 @@ const SettingsPage = (): JSX.Element | null => {
     setMigrateResult(null)
 
     try {
-      const response = await fetch('/api/settings/migrate-json-to-mysql', {
+      const response = await fetch(`${basePath}/api/settings/migrate-json-to-mysql`, {
         method: 'POST',
         credentials: 'include',
       })
@@ -250,7 +251,7 @@ const SettingsPage = (): JSX.Element | null => {
   const loadAssigners = async () => {
     setAssignersLoading(true)
     try {
-      const response = await fetch('/api/assigners', {
+      const response = await fetch(`${basePath}/api/assigners`, {
         credentials: 'include',
       })
       if (response.ok) {
@@ -270,7 +271,7 @@ const SettingsPage = (): JSX.Element | null => {
       const formData = new FormData()
       formData.append('file', file)
       
-      const response = await fetch('/api/assigners/upload', {
+      const response = await fetch(`${basePath}/api/assigners/upload`, {
         method: 'POST',
         credentials: 'include',
         body: formData
@@ -299,7 +300,7 @@ const SettingsPage = (): JSX.Element | null => {
     }
     
     try {
-      const response = await fetch('/api/assigners', {
+      const response = await fetch(`${basePath}/api/assigners`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -323,7 +324,7 @@ const SettingsPage = (): JSX.Element | null => {
   
   const handleUpdateAssigner = async (id: string, name: string, avatar?: string) => {
     try {
-      const response = await fetch('/api/assigners', {
+      const response = await fetch(`${basePath}/api/assigners`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -349,7 +350,7 @@ const SettingsPage = (): JSX.Element | null => {
     }
     
     try {
-      const response = await fetch(`/api/assigners?id=${id}`, {
+      const response = await fetch(`${basePath}/api/assigners?id=${id}`, {
         method: 'DELETE',
         credentials: 'include',
       })
@@ -384,7 +385,7 @@ const SettingsPage = (): JSX.Element | null => {
     setTestResult(null)
     
     try {
-      const response = await fetch('/api/settings/db-config', {
+      const response = await fetch(`${basePath}/api/settings/db-config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -413,7 +414,7 @@ const SettingsPage = (): JSX.Element | null => {
     setTestResult(null)
     
     try {
-      const response = await fetch('/api/settings/db-config', {
+      const response = await fetch(`${basePath}/api/settings/db-config`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -435,7 +436,7 @@ const SettingsPage = (): JSX.Element | null => {
     setInfoLoading(true)
     setDbInfo(null)
     try {
-      const response = await fetch('/api/settings/db-info', {
+      const response = await fetch(`${basePath}/api/settings/db-info`, {
         credentials: 'include',
       })
       if (response.ok) {
@@ -459,7 +460,7 @@ const SettingsPage = (): JSX.Element | null => {
     setInitLoading(true)
     setInitResult(null)
     try {
-      const response = await fetch('/api/settings/db-init', {
+      const response = await fetch(`${basePath}/api/settings/db-init`, {
         method: 'POST',
         credentials: 'include',
       })
@@ -2285,7 +2286,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
   const checkAndMigrateData = async () => {
     try {
       // Sprawdź czy są dane bez klienta
-      const response = await fetch('/api/clients/migrate', {
+      const response = await fetch(`${basePath}/api/clients/migrate`, {
         method: 'POST',
         credentials: 'include',
       })
@@ -2309,7 +2310,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
   const loadClients = async () => {
     setClientsLoading(true)
     try {
-      const response = await fetch('/api/clients', {
+      const response = await fetch(`${basePath}/api/clients`, {
         credentials: 'include',
       })
       if (response.ok) {
@@ -2330,7 +2331,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('/api/clients/upload', {
+      const response = await fetch(`${basePath}/api/clients/upload`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -2362,7 +2363,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
     }
 
     try {
-      const response = await fetch('/api/clients', {
+      const response = await fetch(`${basePath}/api/clients`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -2394,7 +2395,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
     }
 
     try {
-      const response = await fetch('/api/clients', {
+      const response = await fetch(`${basePath}/api/clients`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -2425,7 +2426,7 @@ function ClientsSection({ isDark }: { isDark: boolean }) {
     }
 
     try {
-      const response = await fetch(`/api/clients?id=${id}`, {
+      const response = await fetch(`${basePath}/api/clients?id=${id}`, {
         method: 'DELETE',
         credentials: 'include',
       })

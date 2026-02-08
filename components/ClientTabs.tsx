@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, X, Globe, Search, XCircle } from 'lucide-react'
 import CalendarTable from './CalendarTable'
 import { format, parse, isValid } from 'date-fns'
+import { basePath } from '@/lib/apiBase'
 
 interface Client {
   id: number
@@ -43,7 +44,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
 
   const checkAndMigrateData = async () => {
     try {
-      const response = await fetch('/api/clients/migrate', {
+      const response = await fetch(`${basePath}/api/clients/migrate`, {
         method: 'POST',
         credentials: 'include',
       })
@@ -51,7 +52,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
         const result = await response.json()
         if (result.success) {
           // Przeładuj klientów po migracji
-          const clientsResponse = await fetch('/api/clients', {
+          const clientsResponse = await fetch(`${basePath}/api/clients`, {
             credentials: 'include',
           })
           if (clientsResponse.ok) {
@@ -100,7 +101,7 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
 
   const loadClients = async () => {
     try {
-      const response = await fetch('/api/clients', {
+      const response = await fetch(`${basePath}/api/clients`, {
         credentials: 'include',
       })
       if (response.ok) {

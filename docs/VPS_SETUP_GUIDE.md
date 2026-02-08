@@ -117,7 +117,7 @@ W konsoli MySQL:
 ```sql
 CREATE DATABASE wtt_app_database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'wtt_app_user'@'localhost' IDENTIFIED BY 'WTT_hasloMaslo123';
-GRANT ALL PRIVILEGES ON twoja_baza.* TO 'wtt_app_user'@'localhost';
+GRANT ALL PRIVILEGES ON wtt_app_database.* TO 'wtt_app_user'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 ```
@@ -221,6 +221,21 @@ DB_NAME=twoja_baza
 
 Zapisz: `Ctrl+O`, Enter, `Ctrl+X`.
 
+**Gdzie konfigurować bazę danych**
+
+Aplikacja czyta konfigurację MySQL w dwóch trybach (pierwszy ma pierwszeństwo):
+
+1. **Zmienne środowiskowe** – plik **`.env.production`** (na VPS: `~/wtt/.env.production`) lub **`.env`** w katalogu projektu:
+   - `DB_HOST` – host (np. `localhost`)
+   - `DB_PORT` – port (domyślnie `3306`)
+   - `DB_USER` – użytkownik MySQL
+   - `DB_PASSWORD` – hasło
+   - `DB_NAME` – nazwa bazy danych
+
+2. **Plik z interfejsu** – po zapisaniu konfiguracji w aplikacji (Ustawienia → konfiguracja bazy) powstaje plik **`data/db-config.json`** w katalogu projektu (zawiera: `host`, `port`, `user`, `password`, `database`). Na serwerze ścieżka to np. `~/wtt/data/db-config.json`.
+
+Na VPS najlepiej użyć **`.env.production`** (nie commituj tego pliku – jest w `.gitignore`).
+
 Build i start przez PM2:
 
 ```bash
@@ -293,14 +308,15 @@ Gdy chcesz serwować aplikację pod podkatalogiem (Next.js z `basePath: '/wtt'` 
 sudo nano /etc/nginx/sites-available/app.afisza.com
 ```
 
-2. **Wklej konfigurację** (zamień `app.afisza.com` na swoją domenę):
+2. **Wklej konfigurację** (zamień `app.afisza.com` na swoją domenę). Opcjonalnie dodaj blok **Adminer** (panel MySQL w przeglądarce – import .sql):
 
 ```nginx
 server {
     listen 80;
+    listen [::]:80;
     server_name app.afisza.com;
 
-    # Aplikacja WTT pod ścieżką /wtt (wpisujesz ręcznie app.afisza.com/wtt)
+    # Aplikacja WTT pod ścieżką /wtt
     location /wtt {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -312,8 +328,21 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
+
+    # Adminer – panel MySQL (http://app.afisza.com/adminer/). Wymaga: PHP-FPM, plik /var/www/adminer/index.php
+    # Instalacja: sudo mkdir -p /var/www/adminer && sudo wget -q -O /var/www/adminer/index.php https://github.com/vrana/adminer/releases/download/v4.8.1/adminer-4.8.1-mysql.php
+    location = /adminer { return 302 /adminer/; }
+    location = /adminer/ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME /var/www/adminer/index.php;
+        fastcgi_param SCRIPT_NAME /adminer/index.php;
+        fastcgi_param REQUEST_URI /adminer/;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+    }
 }
 ```
+
+**Bez Adminera** (tylko WTT) – zostaw w pliku wyłącznie blok `location /wtt { ... }` i zamknij `server { }`.
 
 3. **Włącz vhost i przeładuj Nginx:**
 

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import LoginForm from '@/components/LoginForm'
 import ClientTabs from '@/components/ClientTabs'
 import Cookies from 'js-cookie'
+import { basePath } from '@/lib/apiBase'
 import { Clock, FileText } from 'lucide-react'
 
 export default function Home() {
@@ -34,7 +35,7 @@ export default function Home() {
       if (token) {
         // Weryfikuj token przez API
         try {
-          const response = await fetch('/api/auth/verify', {
+          const response = await fetch(`${basePath}/api/auth/verify`, {
             credentials: 'include',
           })
           
@@ -88,7 +89,7 @@ export default function Home() {
       console.log('app/page.tsx - Token found but not authenticated, re-checking')
       const checkAuth = async () => {
         try {
-          const response = await fetch('/api/auth/verify', {
+          const response = await fetch(`${basePath}/api/auth/verify`, {
             credentials: 'include',
           })
           if (response.ok) {
@@ -146,7 +147,7 @@ export default function Home() {
         <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <img 
-              src="/logo.png" 
+              src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/logo.png`}
               alt="Afisza Time Tracker" 
               style={{ 
                 width: '28px', 

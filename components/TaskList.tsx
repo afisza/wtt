@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Edit2, Trash2, Plus, X, Check, Clock } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
+import { basePath } from '@/lib/apiBase'
 
 // Funkcja do wykrywania i renderowania linków w tekście
 const renderTextWithLinks = (text: string) => {
@@ -100,7 +101,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
   useEffect(() => {
     const loadAssigners = async () => {
       try {
-        const response = await fetch('/api/assigners', {
+        const response = await fetch(`${basePath}/api/assigners`, {
           credentials: 'include',
         })
         if (response.ok) {

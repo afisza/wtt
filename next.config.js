@@ -3,8 +3,9 @@ const nextConfig = {
   basePath: '/wtt',
   reactStrictMode: true,
   env: {
-    // Ustaw domyślną strefę czasową na Warszawa (Polska)
     TZ: 'Europe/Warsaw',
+    /** basePath dla assetów (logo, favicon) – musi być zgodny z basePath powyżej */
+    NEXT_PUBLIC_BASE_PATH: '/wtt',
   },
 }
 

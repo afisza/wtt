@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import { useTheme } from '@/contexts/ThemeContext'
+import { basePath } from '@/lib/apiBase'
 
 interface LoginFormProps {
   onLogin: () => void
@@ -25,7 +26,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
     setLoading(true)
 
     try {
-      const endpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login'
+      const endpoint = isRegisterMode ? `${basePath}/api/auth/register` : `${basePath}/api/auth/login`
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -78,7 +79,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
       <div className="p-6 rounded border w-full max-w-[340px]" style={{ background: 'var(--app-card)', borderColor: 'var(--app-border)' }}>
         <div className="text-center mb-5">
           <img 
-            src="/logo.png" 
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/logo.png`}
             alt="Afisza Time Tracker" 
             className="w-9 h-9 rounded mx-auto mb-2 object-contain"
             style={{ borderRadius: '3px' }}

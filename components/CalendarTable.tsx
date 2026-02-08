@@ -10,6 +10,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { FileText, Loader2 } from 'lucide-react'
 import { robotoFontBase64, robotoFontName } from '@/lib/roboto-font'
+import { basePath } from '@/lib/apiBase'
 
 interface DayData {
   date: string
@@ -49,7 +50,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
   useEffect(() => {
     const loadAssigners = async () => {
       try {
-        const response = await fetch('/api/assigners', {
+        const response = await fetch(`${basePath}/api/assigners`, {
           credentials: 'include',
         })
         if (response.ok) {
@@ -122,7 +123,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
     setLoading(true)
     try {
       const monthKey = format(currentMonth, 'yyyy-MM')
-      const response = await fetch(`/api/work-time?month=${monthKey}&clientId=${clientId}`, {
+      const response = await fetch(`${basePath}/api/work-time?month=${monthKey}&clientId=${clientId}`, {
         credentials: 'include',
       })
       if (response.ok) {
@@ -196,7 +197,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
       const monthKey = format(currentMonth, 'yyyy-MM')
       
       // Pobierz istniejące dane dla tego klienta
-      const existingResponse = await fetch(`/api/work-time?clientId=${clientId}`, {
+      const existingResponse = await fetch(`${basePath}/api/work-time?clientId=${clientId}`, {
         credentials: 'include',
       })
       let existingData = {}
@@ -210,7 +211,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
         [monthKey]: updatedData,
       }
       
-      const response = await fetch('/api/work-time', {
+      const response = await fetch(`${basePath}/api/work-time`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -516,7 +517,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
           resolve() // Kontynuuj bez logo
         }
         
-        logoImg.src = '/logo.png'
+        logoImg.src = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/logo.png`
       })
     } catch (err) {
       console.warn('Nie udało się załadować logotypu aplikacji dla footera:', err)
