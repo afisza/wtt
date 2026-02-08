@@ -287,9 +287,29 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
   const sortedTasks = sortTasksChronologically(tasks)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minHeight: '44px' }}>
       {tasks.length === 0 && !showAddForm && (
-        <div style={{ fontSize: '13px', color: 'var(--app-text-muted)', padding: '4px 0' }}>-</div>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setShowAddForm(true)}
+          onFocus={() => setShowAddForm(true)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowAddForm(true) } }}
+          style={{
+            fontSize: '13px',
+            color: 'var(--app-text-muted)',
+            padding: '10px 0',
+            cursor: 'pointer',
+            minHeight: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            borderRadius: '3px',
+            outline: 'none'
+          }}
+          title="Kliknij lub ustaw kursor, aby dodać zadanie"
+        >
+          -
+        </div>
       )}
       {sortedTasks.map((task, index) => {
         // Znajdź oryginalny indeks zadania w nieposortowanej tablicy
