@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: '/wtt',
   reactStrictMode: true,
   env: {
     // Ustaw domyślną strefę czasową na Warszawa (Polska)
