@@ -8,6 +8,14 @@ import { Button } from '@/components/ui/button'
 import { generateTaskId } from '@/lib/taskId'
 import { basePath, assetUrl } from '@/lib/apiBase'
 
+/** URL do wyświetlenia załącznika – przez API, żeby uniknąć 404 gdy static nie jest serwowany (np. na VPS). */
+function attachmentSrc(url: string): string {
+  if (url.startsWith('/task-attachments/')) {
+    return `${basePath}/api/task-attachments?url=${encodeURIComponent(url)}`
+  }
+  return basePath + (url.startsWith('/') ? url : `/${url}`)
+}
+
 /** Wspólny styl karty formularza (shadcn-like) */
 const formCardStyle: React.CSSProperties = {
   display: 'flex',
@@ -849,7 +857,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                             style={{ width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--app-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--app-card-alt)' }}
                           >
                             {isImg ? (
-                              <img src={basePath + url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={attachmentSrc(url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               <FileText size={20} style={{ color: 'var(--app-text-muted)' }} />
                             )}
@@ -971,7 +979,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                             style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--app-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--app-card-alt)' }}
                           >
                             {isImg ? (
-                              <img src={basePath + url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={attachmentSrc(url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               <FileText size={14} style={{ color: 'var(--app-text-muted)' }} />
                             )}
@@ -1449,9 +1457,9 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
               if (!url) return null
               const isImg = /\.(jpe?g|png|gif|webp)$/i.test(url) || url.includes('/task-attachments/')
               return isImg ? (
-                <img src={basePath + url} alt="" style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain' }} />
+                <img src={attachmentSrc(url)} alt="" style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain' }} />
               ) : (
-                <a href={basePath + url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--app-accent)', fontSize: '16px' }}>Otwórz / Pobierz plik</a>
+                <a href={attachmentSrc(url)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--app-accent)', fontSize: '16px' }}>Otwórz / Pobierz plik</a>
               )
             })()}
           </div>

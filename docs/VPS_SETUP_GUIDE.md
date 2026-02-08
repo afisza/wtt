@@ -430,6 +430,21 @@ Baza MySQL (tabele `users`, `clients`, `work_days`, `tasks` itd.) – backup sta
 
 ---
 
+## Aktualizacja po pushu na GitHub
+
+Na VPS, w katalogu z aplikacją (np. `/home/deploy/wtt` lub `~/wtt`):
+
+```bash
+git pull
+npm install
+npm run build
+pm2 restart nazwa-app
+```
+
+Zamień `nazwa-app` na nazwę Twojej aplikacji w PM2 (np. `wtt`). Sprawdź: `pm2 status`.
+
+---
+
 ## Szybka ściągawka – po pierwszej konfiguracji
 
 | Co robisz           | Komenda |
