@@ -127,7 +127,7 @@ export interface Task {
 interface TaskListProps {
   date: string
   tasks: Task[]
-  onUpdate: (tasks: Task[]) => void
+  onUpdate: (tasks: Task[]) => void | Promise<void>
   onDragStart?: (e: React.DragEvent, taskIndex: number) => void
   onDragEnd?: (e: React.DragEvent) => void
 }
@@ -300,19 +300,20 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
     if (files.length > 0) {
       setUploadingAttachment(true)
       Promise.all(files.slice(0, 10).map(f => uploadTaskAttachment(id, f)))
-        .then(urls => {
+        .then(async urls => {
           const valid = urls.filter(Boolean) as string[]
-          onUpdate([...tasks, { ...newTaskObj, attachments: valid }])
+          await applyUpdate([...tasks, { ...newTaskObj, attachments: valid }])
           showToast('Zadanie zostało dodane', 'success')
           clearForm()
         })
         .catch(err => showToast(err?.message || 'Błąd dodawania załączników', 'error'))
         .finally(() => { setUploadingAttachment(false); setTimeout(() => setIsSaving(false), 500) })
     } else {
-      onUpdate([...tasks, newTaskObj])
-      showToast('Zadanie zostało dodane', 'success')
-      clearForm()
-      setTimeout(() => setIsSaving(false), 1000)
+      applyUpdate([...tasks, newTaskObj]).then(() => {
+        showToast('Zadanie zostało dodane', 'success')
+        clearForm()
+        setTimeout(() => setIsSaving(false), 1000)
+      }).catch(() => setIsSaving(false))
     }
   }
 
@@ -335,7 +336,12 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
     setInlineEditingText(task.text)
   }
 
-  const handleInlineSave = (task: Task) => {
+  const applyUpdate = async (newTasks: Task[]) => {
+    const result = onUpdate(newTasks)
+    if (result != null && typeof (result as Promise<void>).then === 'function') await result
+  }
+
+  const handleInlineSave = async (task: Task) => {
     if (inlineEditingText.trim()) {
       const originalIndex = task.id ? tasks.findIndex(t => t.id === task.id) : tasks.findIndex(t => 
         t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime &&
@@ -345,9 +351,12 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
         setIsSaving(true)
         const updated = [...tasks]
         updated[originalIndex] = { ...updated[originalIndex], text: inlineEditingText.trim() }
-        onUpdate(updated)
-        showToast('Zadanie zostało zaktualizowane', 'success')
-        setTimeout(() => setIsSaving(false), 1000)
+        try {
+          await applyUpdate(updated)
+          showToast('Zadanie zostało zaktualizowane', 'success')
+        } finally {
+          setTimeout(() => setIsSaving(false), 1000)
+        }
       }
     }
     setInlineEditingIndex(null)
@@ -373,7 +382,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
     setEditingAttachments(Array.isArray(task.attachments) ? [...task.attachments] : [])
   }
 
-  const handleSave = (task: Task) => {
+  const handleSave = async (task: Task) => {
     if (editingTask.trim()) {
       const originalIndex = task.id ? tasks.findIndex(t => t.id === task.id) : tasks.findIndex(t => 
         t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime &&
@@ -392,9 +401,12 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
           status: editingStatus,
           attachments: editingAttachments.length ? editingAttachments : (existing.attachments || [])
         }
-        onUpdate(updated)
-        showToast('Zadanie zostało zaktualizowane', 'success')
-        setTimeout(() => setIsSaving(false), 1000)
+        try {
+          await applyUpdate(updated)
+          showToast('Zadanie zostało zaktualizowane', 'success')
+        } finally {
+          setTimeout(() => setIsSaving(false), 1000)
+        }
       }
     }
     setEditingIndex(null)
@@ -406,11 +418,11 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
     setEditingAttachments([])
   }
 
-  const handleDelete = (task: Task) => {
+  const handleDelete = async (task: Task) => {
     const updated = task.id
       ? tasks.filter(t => t.id !== task.id)
       : tasks.filter(t => !(t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime && JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)))
-    onUpdate(updated)
+    await applyUpdate(updated)
     showToast('Zadanie zostało usunięte', 'success')
   }
 
@@ -422,7 +434,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
     return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
   }
 
-  const handleDuplicate = (task: Task) => {
+  const handleDuplicate = async (task: Task) => {
     const existingIds = new Set(tasks.map(t => t.id).filter(Boolean))
     const newId = generateTaskId(existingIds)
     const duplicate: Task = {
@@ -437,7 +449,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
     const idx = task.id ? tasks.findIndex(t => t.id === task.id) : tasks.findIndex(t => t.text === task.text && t.startTime === task.startTime && t.endTime === task.endTime && JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy))
     const insertAt = idx >= 0 ? idx + 1 : tasks.length
     const updated = [...tasks.slice(0, insertAt), duplicate, ...tasks.slice(insertAt)]
-    onUpdate(updated)
+    await applyUpdate(updated)
     showToast('Zadanie skopiowane (+1h)', 'success')
   }
 

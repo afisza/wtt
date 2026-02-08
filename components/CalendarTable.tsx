@@ -194,8 +194,8 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
     try {
       const monthKey = format(currentMonth, 'yyyy-MM')
       
-      // Pobierz istniejące dane dla tego klienta
-      const existingResponse = await fetch(`${basePath}/api/work-time?clientId=${clientId}`, {
+      // Pobierz istniejące dane dla tego klienta (z jawnym month, żeby uniknąć rozjazdu z czasem serwera)
+      const existingResponse = await fetch(`${basePath}/api/work-time?month=${monthKey}&clientId=${clientId}`, {
         credentials: 'include',
       })
       let existingData = {}
@@ -287,7 +287,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
   }
 
-  const updateDayData = (date: string, updates: Partial<DayData>) => {
+  const updateDayData = async (date: string, updates: Partial<DayData>) => {
     // Jeśli date jest już w formacie yyyy-MM-dd, użyj go bezpośrednio (unika problemów ze strefami czasowymi)
     const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : format(new Date(date), 'yyyy-MM-dd')
     const currentDayData = daysData[dateKey] || {
@@ -309,11 +309,11 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
       [dateKey]: updatedDayData,
     }
 
-    saveData(updatedDaysData)
+    await saveData(updatedDaysData)
   }
 
   // Funkcja do przenoszenia zadania między dniami (drag & drop)
-  const moveTask = (sourceDate: string, targetDate: string, taskIndex: number) => {
+  const moveTask = async (sourceDate: string, targetDate: string, taskIndex: number) => {
     // Jeśli daty są już w formacie yyyy-MM-dd, użyj ich bezpośrednio (unika problemów ze strefami czasowymi)
     const sourceDateKey = /^\d{4}-\d{2}-\d{2}$/.test(sourceDate) ? sourceDate : format(new Date(sourceDate), 'yyyy-MM-dd')
     const targetDateKey = /^\d{4}-\d{2}-\d{2}$/.test(targetDate) ? targetDate : format(new Date(targetDate), 'yyyy-MM-dd')
@@ -358,8 +358,12 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
     }
 
     setDaysData(updatedDaysData)
-    saveData(updatedDaysData)
-    showToast(`Zadanie przeniesione z ${sourceDateKey} do ${targetDateKey}`, 'success')
+    try {
+      await saveData(updatedDaysData)
+      showToast(`Zadanie przeniesione z ${sourceDateKey} do ${targetDateKey}`, 'success')
+    } catch {
+      showToast('Błąd zapisu po przeniesieniu', 'error')
+    }
   }
 
   // Handlery dla drag & drop
@@ -1073,7 +1077,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
                     <TaskList
                       date={dateKey}
                       tasks={dayData.tasks}
-                      onUpdate={(tasks) => updateDayData(dateKey, { tasks })}
+                      onUpdate={async (tasks) => { await updateDayData(dateKey, { tasks }) }}
                       onDragStart={(e, taskIndex) => handleDragStart(e, dateKey, taskIndex)}
                       onDragEnd={handleDragEnd}
                     />
