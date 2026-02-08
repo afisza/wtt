@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Edit2, Trash2, Plus, X, Check, Clock, Loader2, FileText, Paperclip, ChevronLeft, ChevronRight, Copy } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -58,7 +58,7 @@ const formTimeIconStyle: React.CSSProperties = {
 const renderTextWithLinks = (text: string) => {
   const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,}[^\s]*)/g
   
-  const parts: (string | JSX.Element)[] = []
+  const parts: (string | React.ReactElement)[] = []
   let lastIndex = 0
   let match
   let keyCounter = 0

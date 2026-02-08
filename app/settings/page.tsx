@@ -28,7 +28,7 @@ interface TableInfo {
   size: string
 }
 
-const SettingsPage = (): JSX.Element | null => {
+const SettingsPage = (): React.ReactElement | null => {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)

@@ -62,11 +62,13 @@ export async function GET(request: NextRequest) {
     const results: Array<{
       date: string
       task: {
+        id?: string
         text: string
         assignedBy: string[]
         startTime: string
         endTime: string
         status: string
+        attachments?: string[]
       }
     }> = []
 

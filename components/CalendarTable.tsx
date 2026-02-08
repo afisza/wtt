@@ -490,6 +490,10 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
       format: 'a4',
       compress: true
     })
+
+    // jsPDF 4.x używa getPageWidth/getPageHeight; 3.x ma doc.internal.pageSize
+    const getPageWidth = () => (typeof (doc as any).getPageWidth === 'function' ? (doc as any).getPageWidth() : (doc as any).internal?.pageSize?.width)
+    const getPageHeight = () => (typeof (doc as any).getPageHeight === 'function' ? (doc as any).getPageHeight() : (doc as any).internal?.pageSize?.height)
     
     // Załaduj czcionkę Roboto z obsługą polskich znaków
     // Używamy skonwertowanej czcionki z pliku
@@ -548,7 +552,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
     
     // Ustaw ciemne tło dla całej strony
     doc.setFillColor(20, 20, 20) // #141414
-    doc.rect(0, 0, doc.internal.pageSize.width, doc.internal.pageSize.height, 'F')
+    doc.rect(0, 0, getPageWidth(), getPageHeight(), 'F')
     
     // Nagłówek z logo i nazwą klienta
     let startY = 18
@@ -741,8 +745,8 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
       },
       margin: { top: 32, right: 14, bottom: 20, left: 14 },
       didDrawPage: (data: any) => {
-        const pageHeight = doc.internal.pageSize.height
-        const pageWidth = doc.internal.pageSize.width
+        const pageHeight = getPageHeight()
+        const pageWidth = getPageWidth()
         
         // Dodaj footer na każdej stronie
         const footerLogoSize = 8

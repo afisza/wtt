@@ -194,6 +194,7 @@ export async function getMonthData(userId: number, monthKey: string, clientId: n
           }
         }
       }
+    }
 
       for (const t of tasks) {
         if (!t.task_uid || t.task_uid === '') {
