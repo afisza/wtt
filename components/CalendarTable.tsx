@@ -162,7 +162,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
                 assignedBy: assignedBy,
                 startTime: task.startTime || '08:00',
                 endTime: task.endTime || '16:00',
-                status: task.status || (task.completed ? 'wykonano' : 'do zrobienia') as const
+                status: task.status || (task.completed ? 'wykonano' : 'do zrobienia')
               }
             })
           }
@@ -621,7 +621,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
       const dateWithDay = `${dateStr}\n${dayName}`
       
       // Zbierz wszystkich unikalnych osób zlecających dla tego dnia (flatten arrays)
-      const dayAssigners = [...new Set(dayData.tasks.flatMap(t => Array.isArray(t.assignedBy) ? t.assignedBy : (t.assignedBy ? [t.assignedBy] : [])).filter(Boolean))]
+      const dayAssigners = Array.from(new Set(dayData.tasks.flatMap(t => Array.isArray(t.assignedBy) ? t.assignedBy : (t.assignedBy ? [t.assignedBy] : [])).filter(Boolean)))
       const assignersText = dayAssigners.length > 0 
         ? dayAssigners.join('\n')
         : '-'
@@ -706,12 +706,10 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
         fontStyle: 'bold',
         fontSize: 8,
         cellPadding: 3,
-        font: pdfFont, // Użyj czcionki Roboto z obsługą polskich znaków lub domyślnej
-        fontName: pdfFont, // Dodatkowo ustaw fontName dla pewności
+        font: pdfFont,
       },
       bodyStyles: {
-        font: pdfFont, // Upewnij się że body też używa Roboto
-        fontName: pdfFont,
+        font: pdfFont,
       },
       columnStyles: {
         0: { cellWidth: 30, halign: 'left' }, // Dzień
@@ -932,7 +930,7 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
               }
 
               // Zbierz wszystkich, którzy zlecili zadania dla tego dnia
-              const dayAssigners = [...new Set(dayData.tasks.flatMap(t => Array.isArray(t.assignedBy) ? t.assignedBy : (t.assignedBy ? [t.assignedBy] : [])).filter(Boolean))]
+              const dayAssigners = Array.from(new Set(dayData.tasks.flatMap(t => Array.isArray(t.assignedBy) ? t.assignedBy : (t.assignedBy ? [t.assignedBy] : [])).filter(Boolean)))
 
               const isHighlighted = highlightDate === dateKey
               

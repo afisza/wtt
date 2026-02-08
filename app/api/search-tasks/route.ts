@@ -223,7 +223,8 @@ export async function GET(request: NextRequest) {
 
           for (const [dateKey, dayData] of Object.entries(monthData as Record<string, unknown>)) {
             if (!dayData || typeof dayData !== 'object') continue
-            const day = dayData as { tasks?: unknown[] }
+            type JsonTask = { text?: string; assignedBy?: unknown; startTime?: string; endTime?: string; status?: string }
+            const day = dayData as { tasks?: JsonTask[] }
             // Pomijamy klucze, które nie są w formacie YYYY-MM-DD
             if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) continue
             if (!day.tasks || !Array.isArray(day.tasks)) continue

@@ -162,22 +162,23 @@ export async function getDatabaseInfo(): Promise<{
       connectTimeout: 10000,
       timezone: 'Z', // UTC
     })
-    
+    const conn = connection
+
     // Ustaw strefę czasową na Europe/Warsaw (CET/CEST)
-    await connection.execute(`SET time_zone = '+01:00'`)
+    await conn.execute(`SET time_zone = '+01:00'`)
     
     // Sprawdź połączenie
-    await connection.ping()
+    await conn.ping()
     
     // Przełącz się na bazę danych
-    await connection.execute(`USE \`${config.database}\``)
+    await conn.execute(`USE \`${config.database}\``)
     
     let sizeMB = 0
     let tables: any[] = []
     
     try {
       // Spróbuj pobrać informacje z information_schema
-      const [dbSizeResult] = await connection.execute(
+      const [dbSizeResult] = await conn.execute(
         `SELECT 
           ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb
          FROM information_schema.tables 
@@ -188,7 +189,7 @@ export async function getDatabaseInfo(): Promise<{
       sizeMB = dbSizeResult[0]?.size_mb || 0
       
       // Pobierz listę tabel z rozmiarami
-      const [tablesResult] = await connection.execute(
+      const [tablesResult] = await conn.execute(
         `SELECT 
           table_name AS name,
           ROUND((data_length + index_length) / 1024 / 1024, 2) AS size_mb
@@ -204,7 +205,7 @@ export async function getDatabaseInfo(): Promise<{
           let rows = 0
           try {
             // Pobierz dokładną liczbę wierszy używając COUNT(*)
-            const [countResult] = await connection.execute(
+            const [countResult] = await conn.execute(
               `SELECT COUNT(*) as count FROM \`${table.name}\``
             ) as any[]
             rows = countResult[0]?.count || 0
@@ -212,7 +213,7 @@ export async function getDatabaseInfo(): Promise<{
             // Jeśli nie można pobrać COUNT, użyj table_rows jako fallback
             console.warn(`Cannot get row count for table ${table.name}:`, countError.message)
             try {
-              const [tableRowsResult] = await connection.execute(
+              const [tableRowsResult] = await conn.execute(
                 `SELECT table_rows AS rows
                  FROM information_schema.tables 
                  WHERE table_schema = ? AND table_name = ?`,
@@ -236,7 +237,7 @@ export async function getDatabaseInfo(): Promise<{
       console.warn('Cannot access information_schema, using alternative method:', infoSchemaError.message)
       
       // Pobierz listę tabel używając SHOW TABLES
-      const [tablesResult] = await connection.execute(`SHOW TABLES`) as any[]
+      const [tablesResult] = await conn.execute(`SHOW TABLES`) as any[]
       
       const tableKey = `Tables_in_${config.database}`
       const tableNames = tablesResult.map((row: any) => row[tableKey])
@@ -249,7 +250,7 @@ export async function getDatabaseInfo(): Promise<{
           
           // Pobierz dokładną liczbę wierszy używając COUNT(*)
           try {
-            const [countResult] = await connection.execute(
+            const [countResult] = await conn.execute(
               `SELECT COUNT(*) as count FROM \`${tableName}\``
             ) as any[]
             rows = countResult[0]?.count || 0
@@ -260,7 +261,7 @@ export async function getDatabaseInfo(): Promise<{
           
           // Spróbuj pobrać rozmiar używając SHOW TABLE STATUS
           try {
-            const [statusResult] = await connection.execute(
+            const [statusResult] = await conn.execute(
               `SHOW TABLE STATUS LIKE ?`,
               [tableName]
             ) as any[]

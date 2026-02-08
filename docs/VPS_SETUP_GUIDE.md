@@ -115,9 +115,9 @@ sudo mysql
 W konsoli MySQL:
 
 ```sql
-CREATE DATABASE twoja_baza CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'app_user'@'localhost' IDENTIFIED BY 'silne_haslo';
-GRANT ALL PRIVILEGES ON twoja_baza.* TO 'app_user'@'localhost';
+CREATE DATABASE wtt_app_database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'wtt_app_user'@'localhost' IDENTIFIED BY 'WTT_hasloMaslo123';
+GRANT ALL PRIVILEGES ON twoja_baza.* TO 'wtt_app_user'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 ```
@@ -280,6 +280,52 @@ sudo systemctl reload nginx
 ```
 
 Wejdź w przeglądarce na `http://TWOJ_IP` – powinna się załadować Twoja aplikacja.
+
+---
+
+## Krok 11b: Aplikacja pod ścieżką (np. app.afisza.com/wtt)
+
+Gdy chcesz serwować aplikację pod podkatalogiem (Next.js z `basePath: '/wtt'` w `next.config.js`):
+
+1. **Utwórz osobny plik vhost** (zamiast edytować `default`):
+
+```bash
+sudo nano /etc/nginx/sites-available/app.afisza.com
+```
+
+2. **Wklej konfigurację** (zamień `app.afisza.com` na swoją domenę):
+
+```nginx
+server {
+    listen 80;
+    server_name app.afisza.com;
+
+    # Aplikacja WTT pod ścieżką /wtt (wpisujesz ręcznie app.afisza.com/wtt)
+    location /wtt {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+3. **Włącz vhost i przeładuj Nginx:**
+
+```bash
+sudo ln -sf /etc/nginx/sites-available/app.afisza.com /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+4. **Na serwerze upewnij się, że aplikacja działa:** `pm2 status`, `pm2 logs wtt`. Aplikacja musi być zbudowana z `basePath: '/wtt'` i nasłuchiwać na porcie 3000.
+
+Po konfiguracji aplikacja będzie dostępna pod `http://app.afisza.com/wtt` (bez przekierowania z głównej strony domeny).
 
 ---
 
