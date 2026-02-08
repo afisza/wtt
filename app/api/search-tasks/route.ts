@@ -221,13 +221,14 @@ export async function GET(request: NextRequest) {
           // Pomijamy klucze, które nie są w formacie YYYY-MM
           if (!/^\d{4}-\d{2}$/.test(monthKey)) continue
 
-          for (const [dateKey, dayData] of Object.entries(monthData as any)) {
+          for (const [dateKey, dayData] of Object.entries(monthData as Record<string, unknown>)) {
             if (!dayData || typeof dayData !== 'object') continue
+            const day = dayData as { tasks?: unknown[] }
             // Pomijamy klucze, które nie są w formacie YYYY-MM-DD
             if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) continue
-            if (!dayData.tasks || !Array.isArray(dayData.tasks)) continue
+            if (!day.tasks || !Array.isArray(day.tasks)) continue
 
-            for (const task of dayData.tasks) {
+            for (const task of day.tasks) {
               const taskText = String(task.text || '').toLowerCase()
               const assignedByArray = Array.isArray(task.assignedBy) 
                 ? task.assignedBy 
