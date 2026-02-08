@@ -439,6 +439,23 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + direction, 1))
   }
 
+  // Strzałki ← → przełączają miesiąc (nie w polach input/textarea)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        changeMonth(-1)
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        changeMonth(1)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [currentMonth])
+
   const calculateMonthTotal = (): string => {
     let totalMinutes = 0
     Object.values(daysData).forEach(day => {
