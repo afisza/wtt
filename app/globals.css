@@ -2,10 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Ukryj natywne ikony zegara w polach time input */
-input[type="time"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.5) brightness(2);
+/* Ikona zegara w polach time – widoczna w obu motywach */
+:root input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1); /* biała ikona → ciemna na jasnym tle */
   cursor: pointer;
+  opacity: 0.7;
+}
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0) brightness(1.1);
+  cursor: pointer;
+  opacity: 0.85;
 }
 
 input[type="time"]::-webkit-inner-spin-button,

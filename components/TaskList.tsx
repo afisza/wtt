@@ -1,9 +1,57 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Edit2, Trash2, Plus, X, Check, Clock } from 'lucide-react'
+import { Edit2, Trash2, Plus, X, Check, Clock, Loader2 } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
+import { useTheme } from '@/contexts/ThemeContext'
+import { Button } from '@/components/ui/button'
 import { basePath, assetUrl } from '@/lib/apiBase'
+
+/** Wspólny styl karty formularza (shadcn-like) */
+const formCardStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '10px',
+  padding: '12px 14px',
+  marginTop: '6px',
+  background: 'var(--app-card)',
+  border: '1px solid var(--app-border)',
+  borderRadius: '8px',
+  boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+}
+const formLabelStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  fontSize: '11px',
+  fontWeight: '600',
+  color: 'var(--app-text-muted)',
+  marginBottom: '4px',
+}
+const formInputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '6px 8px 6px 28px',
+  border: '1px solid var(--app-border)',
+  borderRadius: '6px',
+  fontSize: '12px',
+  background: 'var(--app-card-alt)',
+  color: 'var(--app-text)',
+  fontFamily: 'inherit',
+  outline: 'none',
+}
+const formTimeWrapperStyle: React.CSSProperties = {
+  position: 'relative',
+  display: 'flex',
+  alignItems: 'center',
+}
+const formTimeIconStyle: React.CSSProperties = {
+  position: 'absolute',
+  left: '8px',
+  pointerEvents: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  color: 'var(--app-text-muted)',
+}
 
 // Funkcja do wykrywania i renderowania linków w tekście
 const renderTextWithLinks = (text: string) => {
@@ -96,6 +144,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
   const [showNewAssignerDropdown, setShowNewAssignerDropdown] = useState(false)
   const [assignerSearchQuery, setAssignerSearchQuery] = useState('')
   const [editingAssignerSearchQuery, setEditingAssignerSearchQuery] = useState<Record<number, string>>({})
+  const [isSaving, setIsSaving] = useState(false)
   const { showToast } = useToast()
 
   useEffect(() => {
@@ -167,6 +216,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
 
   const handleAdd = () => {
     if (newTask.trim()) {
+      setIsSaving(true)
       onUpdate([...tasks, { 
         text: newTask.trim(), 
         assignedBy: newAssignedBy,
@@ -181,6 +231,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
       setNewEndTime('')
       setNewStatus('do zrobienia')
       setShowAddForm(false)
+      setTimeout(() => setIsSaving(false), 1000)
     }
   }
 
@@ -213,10 +264,12 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
         JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)
       )
       if (originalIndex !== -1) {
+        setIsSaving(true)
         const updated = [...tasks]
         updated[originalIndex] = { ...updated[originalIndex], text: inlineEditingText.trim() }
         onUpdate(updated)
         showToast('Zadanie zostało zaktualizowane', 'success')
+        setTimeout(() => setIsSaving(false), 1000)
       }
     }
     setInlineEditingIndex(null)
@@ -252,6 +305,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
         JSON.stringify(t.assignedBy) === JSON.stringify(task.assignedBy)
       )
       if (originalIndex !== -1) {
+        setIsSaving(true)
         const updated = [...tasks]
         updated[originalIndex] = { 
           text: editingTask.trim(), 
@@ -262,6 +316,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
         }
         onUpdate(updated)
         showToast('Zadanie zostało zaktualizowane', 'success')
+        setTimeout(() => setIsSaving(false), 1000)
       }
     }
     setEditingIndex(null)
@@ -288,6 +343,29 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minHeight: '44px' }}>
+      {isSaving && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            background: 'var(--app-card-alt)',
+            border: '1px solid var(--app-border)',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: '500',
+            color: 'var(--app-text)',
+            marginBottom: '4px',
+            width: 'fit-content',
+          }}
+        >
+          <Loader2 size={14} className="animate-spin" style={{ flexShrink: 0, color: 'var(--app-text-muted)' }} />
+          <span>Zapisywanie…</span>
+        </div>
+      )}
       {tasks.length === 0 && !showAddForm && (
         <div
           role="button"
@@ -403,78 +481,54 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                 </button>
               </div>
             ) : isEditing ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ flex: 1, ...formCardStyle }}>
                 <textarea
                   value={editingTask}
                   onChange={(e) => setEditingTask(e.target.value)}
                   placeholder="Treść zadania..."
                   style={{ 
                     width: '100%', 
-                    padding: '4px 6px', 
-                    border: '1px solid var(--app-accent)', 
-                    borderRadius: '3px', 
+                    padding: '8px 10px', 
+                    border: '1px solid var(--app-border)', 
+                    borderRadius: '6px', 
                     fontSize: '13px',
-                    minHeight: '35px',
+                    minHeight: '56px',
                     resize: 'vertical',
                     background: 'var(--app-card-alt)',
                     color: 'var(--app-text)',
                     fontFamily: 'inherit',
-                    outline: 'none'
+                    outline: 'none',
                   }}
                 />
-                <div style={{ display: 'flex', gap: '4px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <div style={{ flex: 1 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--app-text-muted)', marginBottom: '2px', fontWeight: '600' }}>
-                      <Clock size={10} color="#888" />
+                    <label style={formLabelStyle}>
+                      <Clock size={10} style={{ color: 'var(--app-text-muted)' }} />
                       Czas OD
                     </label>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <div style={formTimeWrapperStyle}>
+                      <span style={formTimeIconStyle}><Clock size={12} /></span>
                       <input
                         type="time"
                         value={editingStartTime}
                         onChange={(e) => setEditingStartTime(e.target.value)}
-                        style={{ 
-                          width: '100%', 
-                          padding: '3px 6px 3px 24px', 
-                          border: '1px solid var(--app-accent)', 
-                          borderRadius: '3px', 
-                          fontSize: '11px',
-                          background: 'var(--app-card-alt)',
-                          color: 'var(--app-text)',
-                          fontFamily: 'inherit',
-                          outline: 'none'
-                        }}
+                        style={formInputStyle}
                       />
-                      <div style={{ position: 'absolute', left: '6px', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
-                        <Clock size={12} color="#888" />
-                      </div>
                     </div>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--app-text-muted)', marginBottom: '2px', fontWeight: '600' }}>
-                      <Clock size={10} color="#888" />
+                    <label style={formLabelStyle}>
+                      <Clock size={10} style={{ color: 'var(--app-text-muted)' }} />
                       Czas DO
                     </label>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <div style={formTimeWrapperStyle}>
+                      <span style={formTimeIconStyle}><Clock size={12} /></span>
                       <input
                         type="time"
                         value={editingEndTime}
                         onChange={(e) => setEditingEndTime(e.target.value)}
-                        style={{ 
-                          width: '100%', 
-                          padding: '3px 6px 3px 24px', 
-                          border: '1px solid var(--app-accent)', 
-                          borderRadius: '3px', 
-                          fontSize: '11px',
-                          background: 'var(--app-card-alt)',
-                          color: 'var(--app-text)',
-                          fontFamily: 'inherit',
-                          outline: 'none'
-                        }}
+                        style={formInputStyle}
                       />
-                      <div style={{ position: 'absolute', left: '6px', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
-                        <Clock size={12} color="#888" />
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -682,36 +736,21 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     <option key={status} value={status} style={{ background: 'var(--app-card-alt)', color: 'var(--app-text)' }}>{status}</option>
                   ))}
                 </select>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <button
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="flex-1 h-8 text-xs"
                     onClick={() => handleSave(task)}
-                    style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px',
-                      padding: '4px 8px',
-                      background: '#10B981',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '3px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#059669'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#10B981'
-                    }}
                   >
-                    <Check size={11} color="#ffffff" />
+                    <Check size={12} className="mr-1.5" />
                     Zapisz
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="flex-1 h-8 text-xs"
                     onClick={() => {
                       setEditingIndex(null)
                       setEditingTask('')
@@ -720,32 +759,10 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                       setEditingEndTime('')
                       setEditingStatus('do zrobienia')
                     }}
-                    style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px',
-                      padding: '4px 8px',
-                      background: '#EF4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '3px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#DC2626'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#EF4444'
-                    }}
                   >
-                    <X size={9} color="#ffffff" />
+                    <X size={12} className="mr-1.5" />
                     Anuluj
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -759,7 +776,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                     {renderTextWithLinks(task.text)}
                   </div>
                   <div style={{ fontSize: '10px', color: 'var(--app-text-muted)', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <Clock size={11} color="#888" />
+                    <Clock size={11} style={{ color: 'var(--app-text-muted)' }} />
                     {task.startTime || '08:00'} - {task.endTime || '16:00'}
                   </div>
                 </div>
@@ -842,7 +859,7 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px', background: 'var(--app-card-alt)', borderRadius: '3px', border: '1px dashed var(--app-border)', marginTop: '4px' }}>
+            <div style={formCardStyle}>
               <textarea
                 value={newTask}
                 onChange={(e) => setNewTask(e.target.value)}
@@ -854,72 +871,48 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                 }}
                 style={{ 
                   width: '100%', 
-                  padding: '4px 6px', 
+                  padding: '8px 10px', 
                   border: '1px solid var(--app-border)', 
-                  borderRadius: '3px', 
+                  borderRadius: '6px', 
                   fontSize: '13px',
-                  minHeight: '40px',
+                  minHeight: '56px',
                   resize: 'vertical',
                   background: 'var(--app-card-alt)',
                   color: 'var(--app-text)',
                   fontFamily: 'inherit',
-                  outline: 'none'
+                  outline: 'none',
                 }}
                 autoFocus
               />
-              <div style={{ display: 'flex', gap: '4px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--app-text-muted)', marginBottom: '2px', fontWeight: '600' }}>
-                    <Clock size={10} color="#888" />
+                  <label style={formLabelStyle}>
+                    <Clock size={10} style={{ color: 'var(--app-text-muted)' }} />
                     Czas OD
                   </label>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <div style={formTimeWrapperStyle}>
+                    <span style={formTimeIconStyle}><Clock size={12} /></span>
                     <input
                       type="time"
                       value={newStartTime}
                       onChange={(e) => setNewStartTime(e.target.value)}
-                      style={{ 
-                        width: '100%', 
-                        padding: '3px 6px 3px 24px', 
-                        border: '1px solid var(--app-border)', 
-                        borderRadius: '3px', 
-                        fontSize: '11px',
-                        background: 'var(--app-card-alt)',
-                        color: 'var(--app-text)',
-                        fontFamily: 'inherit',
-                        outline: 'none'
-                      }}
+                      style={formInputStyle}
                     />
-                    <div style={{ position: 'absolute', left: '6px', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
-                      <Clock size={12} color="#888" />
-                    </div>
                   </div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--app-text-muted)', marginBottom: '2px', fontWeight: '600' }}>
-                    <Clock size={10} color="#888" />
+                  <label style={formLabelStyle}>
+                    <Clock size={10} style={{ color: 'var(--app-text-muted)' }} />
                     Czas DO
                   </label>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <div style={formTimeWrapperStyle}>
+                    <span style={formTimeIconStyle}><Clock size={12} /></span>
                     <input
                       type="time"
                       value={newEndTime}
                       onChange={(e) => setNewEndTime(e.target.value)}
-                      style={{ 
-                        width: '100%', 
-                        padding: '3px 6px 3px 24px', 
-                        border: '1px solid var(--app-border)', 
-                        borderRadius: '3px', 
-                        fontSize: '11px',
-                        background: 'var(--app-card-alt)',
-                        color: 'var(--app-text)',
-                        fontFamily: 'inherit',
-                        outline: 'none'
-                      }}
+                      style={formInputStyle}
                     />
-                    <div style={{ position: 'absolute', left: '6px', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
-                      <Clock size={12} color="#888" />
-                    </div>
                   </div>
                 </div>
               </div>
@@ -1127,63 +1120,26 @@ export default function TaskList({ date, tasks, onUpdate, onDragStart, onDragEnd
                   <option key={status} value={status} style={{ background: 'var(--app-card-alt)', color: 'var(--app-text)' }}>{status}</option>
                 ))}
               </select>
-              <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
-                <button
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="flex-1 h-8 text-xs"
                   onClick={handleAdd}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    padding: '4px 8px',
-                    background: 'var(--app-accent)',
-                    color: 'var(--app-accent-foreground)',
-                    border: 'none',
-                    borderRadius: '3px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#b0251f'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#d22f27'
-                    }}
-                  >
-                    <Check size={12} color="#ffffff" />
-                    Zapisz
-                  </button>
-                  <button
-                    onClick={handleCancelAdd}
-                    style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px',
-                      padding: '4px 8px',
-                      background: '#EF4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '3px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#DC2626'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#EF4444'
-                    }}
-                  >
-                    <X size={10} color="#ffffff" />
-                    Anuluj
-                </button>
+                >
+                  <Check size={12} className="mr-1.5" />
+                  Zapisz
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="flex-1 h-8 text-xs"
+                  onClick={handleCancelAdd}
+                >
+                  <X size={12} className="mr-1.5" />
+                  Anuluj
+                </Button>
               </div>
             </div>
           )}
