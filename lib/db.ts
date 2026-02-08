@@ -164,14 +164,11 @@ export async function getDatabaseInfo(): Promise<{
     })
     const conn = connection
 
-    // Ustaw strefę czasową na Europe/Warsaw (CET/CEST)
-    await conn.execute(`SET time_zone = '+01:00'`)
+    // SET i USE nie działają przez execute() (ER_UNSUPPORTED_PS) – używamy query()
+    await conn.query(`SET time_zone = '+01:00'`)
+    await conn.query(`USE \`${config.database}\``)
     
-    // Sprawdź połączenie
     await conn.ping()
-    
-    // Przełącz się na bazę danych
-    await conn.execute(`USE \`${config.database}\``)
     
     let sizeMB = 0
     let tables: any[] = []

@@ -50,7 +50,7 @@ const SettingsPage = (): JSX.Element | null => {
   const [testLoading, setTestLoading] = useState(false)
   
   // Database info state
-  const [dbInfo, setDbInfo] = useState<{ size: string; tables: TableInfo[] } | null>(null)
+  const [dbInfo, setDbInfo] = useState<{ size: string; tables: TableInfo[]; limitedPrivileges?: boolean; message?: string } | null>(null)
   const [infoLoading, setInfoLoading] = useState(false)
   const [initLoading, setInitLoading] = useState(false)
   const [initResult, setInitResult] = useState<{ success: boolean; message?: string; alreadyExists?: boolean } | null>(null)
@@ -1615,6 +1615,11 @@ const SettingsPage = (): JSX.Element | null => {
                   }}>
                     {dbInfo.size}
                   </p>
+                  {dbInfo.limitedPrivileges && dbInfo.message && (
+                    <p style={{ marginTop: '12px', fontSize: '13px', color: 'var(--app-text-muted)' }}>
+                      {dbInfo.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>

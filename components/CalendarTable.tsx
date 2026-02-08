@@ -223,11 +223,13 @@ export default function CalendarTable({ clientId, clientName, clientLogo, highli
         setDaysData(updatedData)
         showToast('Dane zostały zapisane', 'success')
       } else {
-        throw new Error('Failed to save data')
+        const errData = await response.json().catch(() => ({}))
+        const msg = errData?.error || errData?.details || 'Zapis do bazy nie powiódł się.'
+        throw new Error(msg)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving data:', error)
-      showToast('Błąd podczas zapisywania danych', 'error')
+      showToast(error?.message || 'Błąd podczas zapisywania danych', 'error')
     }
   }
 

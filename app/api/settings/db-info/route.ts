@@ -34,12 +34,21 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Database info error:', error)
     
-    // Sprawdź typ błędu i zwróć odpowiedni komunikat
-    let errorMessage = 'Failed to get database info'
+    const isAccessDenied = error.code === 'ER_ACCESS_DENIED_ERROR' ||
+      error.message?.includes('Access denied') ||
+      error.message?.includes('information_schema')
+    // Gdy użytkownik bazy nie ma dostępu do information_schema – zwróć 200 z ograniczoną informacją zamiast błędu
+    if (isAccessDenied) {
+      return NextResponse.json({
+        size: '—',
+        tables: [],
+        limitedPrivileges: true,
+        message: 'Połączenie działa. Szczegóły (rozmiar, lista tabel) wymagają uprawnień do information_schema (np. root).',
+      })
+    }
     
-    if (error.code === 'ER_ACCESS_DENIED_ERROR' || error.message?.includes('Access denied')) {
-      errorMessage = 'Access denied - check database credentials'
-    } else if (error.code === 'ER_BAD_DB_ERROR') {
+    let errorMessage = 'Failed to get database info'
+    if (error.code === 'ER_BAD_DB_ERROR') {
       errorMessage = 'Database does not exist'
     } else if (error.code === 'ECONNREFUSED') {
       errorMessage = 'Connection refused - check host and port'

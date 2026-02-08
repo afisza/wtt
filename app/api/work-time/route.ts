@@ -97,9 +97,13 @@ export async function POST(request: NextRequest) {
       if (isMySQLAvailable()) {
         try {
           await saveMonthData(userId, monthKey, daysData as any, clientId)
-        } catch (error) {
-          console.error('MySQL error, falling back to JSON:', error)
-          saveMonthDataJSON(userId, monthKey, daysData as any, clientId)
+        } catch (error: any) {
+          // Nie zapisuj do JSON przy błędzie MySQL – użytkownik musi widzieć błąd. Inaczej dane „znikają” po odświeżeniu (GET czyta z MySQL).
+          console.error('[POST /api/work-time] MySQL save failed:', error?.message || error)
+          return NextResponse.json(
+            { error: 'Zapis do bazy MySQL nie powiódł się. Sprawdź konfigurację i tabele.', details: error?.message },
+            { status: 500 }
+          )
         }
       } else {
         saveMonthDataJSON(userId, monthKey, daysData as any, clientId)
