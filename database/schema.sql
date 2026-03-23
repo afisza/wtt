@@ -116,9 +116,8 @@ EXECUTE alterIfNotExists;
 DEALLOCATE PREPARE alterIfNotExists;
 
 -- Wstaw domyślnego użytkownika (hasło: admin123)
--- Hash hasła: $2a$10$rOzJqZqZqZqZqZqZqZqZqOqZqZqZqZqZqZqZqZqZqZqZqZqZqZqZq
--- W produkcji użyj bcrypt do hashowania hasła
+-- Hash wygenerowany: bcrypt.hash('admin123', 10)
 INSERT INTO users (email, password) 
-VALUES ('admin@wtt.pl', '$2a$10$rOzJqZqZqZqZqZqZqZqZqOqZqZqZqZqZqZqZqZqZqZqZqZqZqZqZq')
+VALUES ('admin@wtt.pl', '$2a$10$mhEATK9CCn6Ixi4d9KmumeAuNvOkQYeya8BeddA4XZEXXfBZCgbu6')
 ON DUPLICATE KEY UPDATE email=email;
 

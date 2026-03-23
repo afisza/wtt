@@ -1,0 +1,19 @@
+{
+    "name": "wtt/api",
+    "description": "WTT PHP Backend",
+    "type": "project",
+    "authors": [
+        {
+            "name": "afisza",
+            "email": "117922965+afisza@users.noreply.github.com"
+        }
+    ],
+    "require": {
+        "firebase/php-jwt": "^6.0"
+    },
+    "config": {
+        "audit": {
+            "block-insecure": false
+        }
+    }
+}

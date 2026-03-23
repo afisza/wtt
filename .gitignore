@@ -47,6 +47,15 @@ public/avatars/*
 # task attachments (user uploads)
 public/task-attachments/
 
+# build output
+/dist
+
+# deploy archive
+timer-afisza-deploy.zip
+
+# PHP vendor (install via composer)
+api/vendor/
+
 # vercel
 .vercel
 
@@ -55,4 +64,8 @@ public/task-attachments/
 next-env.d.ts
 
 
-
+VPS_login.md
+VPS_SETUP_GUIDE.md
+VPS_diagnose.sh 
+MIGRATION_ANALYSIS.md
+PRODUCTION_CHECKLIST.md

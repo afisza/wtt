@@ -1,0 +1,22 @@
+DirectoryIndex dist/index.html
+
+RewriteEngine On
+RewriteBase /
+
+# API requests → PHP router
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# Block access to source files
+RewriteRule ^src/ - [F,L]
+RewriteRule ^index\.html$ dist/index.html [L]
+
+# Serve built assets from dist/assets/
+RewriteRule ^assets/(.*)$ dist/assets/$1 [L]
+
+# Static files/directories → serve directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# SPA fallback → built index.html
+RewriteRule ^ dist/index.html [L]
