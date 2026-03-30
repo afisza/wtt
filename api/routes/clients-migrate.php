@@ -121,5 +121,5 @@ try {
     }
 } catch (Exception $e) {
     error_log('Migration error: ' . $e->getMessage());
-    jsonResponse(['error' => 'Failed to migrate data', 'details' => $e->getMessage()], 500);
+    jsonResponse(['error' => 'Failed to migrate data'], 500);
 }

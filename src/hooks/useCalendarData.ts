@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns'
 import { pl } from 'date-fns/locale'
 import { useToast } from '@/contexts/ToastContext'
@@ -27,6 +27,13 @@ export function useCalendarData(clientId: number | null) {
   const [hourlyRate, setHourlyRate] = useState<string>('')
   const [assigners, setAssigners] = useState<any[]>([])
   const { showToast } = useToast()
+
+  // Ref always holds the latest daysData — avoids stale closures
+  const daysDataRef = useRef(daysData)
+  daysDataRef.current = daysData
+
+  // Save queue — serializes saves to prevent concurrent overwrites
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   // Load assigners
   useEffect(() => {
@@ -228,51 +235,45 @@ export function useCalendarData(clientId: number | null) {
     }
   }
 
-  const saveData = async (updatedData: Record<string, DayData>) => {
+  const saveData = useCallback(async (updatedData: Record<string, DayData>) => {
     if (clientId === null) return
 
-    try {
-      const monthKey = format(currentMonth, 'yyyy-MM')
+    // Enqueue: wait for any in-flight save to finish, then run ours
+    const doSave = async () => {
+      try {
+        const monthKey = format(currentMonth, 'yyyy-MM')
 
-      const existingResponse = await fetch(`${basePath}/api/work-time?month=${monthKey}&clientId=${clientId}`, {
-        credentials: 'include',
-        cache: 'no-store',
-      })
-      let existingData = {}
-      if (existingResponse.ok) {
-        existingData = await existingResponse.json()
+        const response = await fetch(`${basePath}/api/work-time`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ [monthKey]: updatedData, clientId }),
+        })
+        if (response.ok) {
+          setDaysData(updatedData)
+          daysDataRef.current = updatedData
+          showToast('Dane zostały zapisane', 'success')
+        } else {
+          const errData = await response.json().catch(() => ({}))
+          const msg = errData?.error || errData?.details || 'Zapis do bazy nie powiódł się.'
+          throw new Error(msg)
+        }
+      } catch (error: any) {
+        console.error('Error saving data:', error)
+        showToast(error?.message || 'Błąd podczas zapisywania danych', 'error')
       }
-
-      const updatedMonthData = {
-        ...existingData,
-        [monthKey]: updatedData,
-      }
-
-      const response = await fetch(`${basePath}/api/work-time`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ ...updatedMonthData, clientId }),
-      })
-      if (response.ok) {
-        setDaysData(updatedData)
-        showToast('Dane zostały zapisane', 'success')
-      } else {
-        const errData = await response.json().catch(() => ({}))
-        const msg = errData?.error || errData?.details || 'Zapis do bazy nie powiódł się.'
-        throw new Error(msg)
-      }
-    } catch (error: any) {
-      console.error('Error saving data:', error)
-      showToast(error?.message || 'Błąd podczas zapisywania danych', 'error')
     }
-  }
 
-  const updateDayData = async (date: string, updates: Partial<DayData>) => {
+    saveQueueRef.current = saveQueueRef.current.then(doSave, doSave)
+    return saveQueueRef.current
+  }, [clientId, currentMonth, showToast])
+
+  const updateDayData = useCallback(async (date: string, updates: Partial<DayData>) => {
     const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : format(new Date(date), 'yyyy-MM-dd')
-    const currentDayData = daysData[dateKey] || {
+
+    // Always read from ref to get the latest state (not stale closure)
+    const latestData = daysDataRef.current
+    const currentDayData = latestData[dateKey] || {
       date: dateKey,
       tasks: [],
       totalHours: '00:00',
@@ -286,20 +287,25 @@ export function useCalendarData(clientId: number | null) {
     updatedDayData.totalHours = calculateTotalHours(updatedDayData.tasks)
 
     const updatedDaysData = {
-      ...daysData,
+      ...latestData,
       [dateKey]: updatedDayData,
     }
 
-    await saveData(updatedDaysData)
-  }
+    // Optimistically update ref + state so next call sees fresh data immediately
+    daysDataRef.current = updatedDaysData
+    setDaysData(updatedDaysData)
 
-  const moveTask = async (sourceDate: string, targetDate: string, taskIndex: number) => {
+    await saveData(updatedDaysData)
+  }, [saveData])
+
+  const moveTask = useCallback(async (sourceDate: string, targetDate: string, taskIndex: number) => {
     const sourceDateKey = /^\d{4}-\d{2}-\d{2}$/.test(sourceDate) ? sourceDate : format(new Date(sourceDate), 'yyyy-MM-dd')
     const targetDateKey = /^\d{4}-\d{2}-\d{2}$/.test(targetDate) ? targetDate : format(new Date(targetDate), 'yyyy-MM-dd')
 
     if (sourceDateKey === targetDateKey) return
 
-    const sourceDayData = daysData[sourceDateKey]
+    const latestData = daysDataRef.current
+    const sourceDayData = latestData[sourceDateKey]
     if (!sourceDayData || !sourceDayData.tasks[taskIndex]) return
 
     const taskToMove = sourceDayData.tasks[taskIndex]
@@ -311,7 +317,7 @@ export function useCalendarData(clientId: number | null) {
       totalHours: calculateTotalHours(updatedSourceTasks),
     }
 
-    const targetDayData = daysData[targetDateKey] || {
+    const targetDayData = latestData[targetDateKey] || {
       date: targetDateKey,
       tasks: [],
       totalHours: '00:00',
@@ -324,11 +330,12 @@ export function useCalendarData(clientId: number | null) {
     }
 
     const updatedDaysData = {
-      ...daysData,
+      ...latestData,
       [sourceDateKey]: updatedSourceDayData,
       [targetDateKey]: updatedTargetDayData,
     }
 
+    daysDataRef.current = updatedDaysData
     setDaysData(updatedDaysData)
     try {
       await saveData(updatedDaysData)
@@ -336,7 +343,7 @@ export function useCalendarData(clientId: number | null) {
     } catch {
       showToast('Błąd zapisu po przeniesieniu', 'error')
     }
-  }
+  }, [saveData, showToast])
 
   const calculateMonthTotal = (): string => {
     let totalMinutes = 0

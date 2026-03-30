@@ -268,19 +268,21 @@ export default function ClientTabs({ onClientChange }: ClientTabsProps) {
     <div className="flex flex-col h-full">
       {/* Website link */}
       {activeClient?.website && (() => {
-        const websiteUrl = activeClient.website.startsWith('http://') || activeClient.website.startsWith('https://')
-          ? activeClient.website
-          : `https://${activeClient.website}`
+        const raw = activeClient.website
+        const full = raw.startsWith('http://') || raw.startsWith('https://') ? raw : `https://${raw}`
+        let safe = false
+        try { const u = new URL(full); safe = u.protocol === 'http:' || u.protocol === 'https:' } catch {}
+        if (!safe) return null
         return (
           <div className="mb-3 px-3 py-2 rounded-lg border bg-muted/50">
             <a
-              href={websiteUrl}
+              href={full}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
             >
               <Globe className="h-3.5 w-3.5" />
-              <span>{activeClient.website}</span>
+              <span>{raw}</span>
             </a>
           </div>
         )

@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import Cookies from 'js-cookie'
 import { basePath } from '@/lib/apiBase'
-import { Eye, EyeOff, Loader2, AlertCircle, Info } from 'lucide-react'
+import { Eye, EyeOff, Loader2, AlertCircle, Info, ShieldCheck } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +16,8 @@ interface LoginFormProps {
 export default function LoginForm({ onLogin }: LoginFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [totpCode, setTotpCode] = useState('')
+  const [needs2FA, setNeeds2FA] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -31,37 +32,34 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
 
     try {
       const endpoint = isRegisterMode ? `${basePath}/api/auth/register` : `${basePath}/api/auth/login`
+      const payload: Record<string, string> = { email, password }
+      if (needs2FA && totpCode) {
+        payload.totpCode = totpCode
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        credentials: 'include',
+        body: JSON.stringify(payload),
       })
 
       const data = await response.json()
 
-      if (response.ok) {
-        if (data.token) {
-          const expiryDays = rememberMe ? 30 : 1
-          const expires = new Date()
-          expires.setTime(expires.getTime() + expiryDays * 24 * 60 * 60 * 1000)
-          document.cookie = `auth_token=${data.token}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`
+      if (response.ok && data.requires2FA) {
+        setNeeds2FA(true)
+        setLoading(false)
+        return
+      }
 
-          Cookies.set('auth_token', data.token, {
-            expires: expiryDays,
-            path: '/',
-            sameSite: 'lax',
-            secure: false,
-          })
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 100))
+      if (response.ok && data.success) {
         onLogin()
         navigate('/')
       } else {
-        setError(data.error || (isRegisterMode ? 'Błąd rejestracji' : 'Błąd logowania'))
+        setError(data.error || (isRegisterMode ? 'Blad rejestracji' : 'Blad logowania'))
       }
-    } catch (err) {
-      setError(isRegisterMode ? 'Wystąpił błąd podczas rejestracji' : 'Wystąpił błąd podczas logowania')
+    } catch {
+      setError(isRegisterMode ? 'Wystapil blad podczas rejestracji' : 'Wystapil blad podczas logowania')
     } finally {
       setLoading(false)
     }
@@ -78,76 +76,115 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
           />
           <CardTitle className="text-lg">Afisza Time Tracker</CardTitle>
           <CardDescription>
-            {isRegisterMode ? 'Utwórz nowe konto' : 'Zaloguj się do swojego konta'}
+            {needs2FA
+              ? 'Wprowadz kod z aplikacji uwierzytelniającej'
+              : isRegisterMode ? 'Utworz nowe konto' : 'Zaloguj sie do swojego konta'}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
-          <Tabs
-            value={isRegisterMode ? 'register' : 'login'}
-            onValueChange={(v) => {
-              setIsRegisterMode(v === 'register')
-              setError('')
-            }}
-            className="mb-5"
-          >
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Logowanie</TabsTrigger>
-              <TabsTrigger value="register">Rejestracja</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {!needs2FA && (
+            <Tabs
+              value={isRegisterMode ? 'register' : 'login'}
+              onValueChange={(v) => {
+                setIsRegisterMode(v === 'register')
+                setError('')
+              }}
+              className="mb-5"
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Logowanie</TabsTrigger>
+                <TabsTrigger value="register">Rejestracja</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="twoj@email.pl"
-                autoComplete="email"
-              />
-            </div>
+            {!needs2FA ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="twoj@email.pl"
+                    autoComplete="email"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Hasło</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  className="pr-9"
-                  autoComplete={isRegisterMode ? 'new-password' : 'current-password'}
-                />
-                <Button
+                <div className="space-y-2">
+                  <Label htmlFor="password">Haslo</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      placeholder="••••••••"
+                      className="pr-9"
+                      autoComplete={isRegisterMode ? 'new-password' : 'current-password'}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-0 top-0 h-9 w-9 text-muted-foreground hover:text-foreground"
+                      tabIndex={-1}
+                      aria-label={showPassword ? 'Ukryj haslo' : 'Pokaz haslo'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {!isRegisterMode && (
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="remember"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked === true)}
+                    />
+                    <Label htmlFor="remember" className="text-sm font-normal text-muted-foreground cursor-pointer">
+                      Zapamietaj mnie
+                    </Label>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  <span>Weryfikacja dwuetapowa (2FA)</span>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="totp">Kod z aplikacji (6 cyfr)</Label>
+                  <Input
+                    id="totp"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    required
+                    placeholder="000000"
+                    autoComplete="one-time-code"
+                    autoFocus
+                    className="text-center text-2xl tracking-[0.5em] font-mono"
+                  />
+                </div>
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-0 top-0 h-9 w-9 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
-                  aria-label={showPassword ? 'Ukryj hasło' : 'Pokaż hasło'}
+                  onClick={() => { setNeeds2FA(false); setTotpCode(''); setError('') }}
+                  className="text-xs text-muted-foreground underline"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-
-            {!isRegisterMode && (
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked === true)}
-                />
-                <Label htmlFor="remember" className="text-sm font-normal text-muted-foreground cursor-pointer">
-                  Zapamiętaj mnie
-                </Label>
+                  Wrocdo logowania
+                </button>
               </div>
             )}
 
@@ -160,17 +197,19 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
 
             <Button type="submit" disabled={loading} className="w-full">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading
-                ? (isRegisterMode ? 'Rejestrowanie...' : 'Logowanie...')
-                : (isRegisterMode ? 'Zarejestruj się' : 'Zaloguj się')
+              {needs2FA
+                ? (loading ? 'Weryfikacja...' : 'Zweryfikuj')
+                : loading
+                  ? (isRegisterMode ? 'Rejestrowanie...' : 'Logowanie...')
+                  : (isRegisterMode ? 'Zarejestruj sie' : 'Zaloguj sie')
               }
             </Button>
           </form>
 
-          {isRegisterMode && (
+          {isRegisterMode && !needs2FA && (
             <div className="mt-4 flex items-start gap-2 rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground">
               <Info className="h-4 w-4 mt-0.5 shrink-0" />
-              <p>Rejestracja wymaga skonfigurowanej bazy danych MySQL. Skonfiguruj bazę w ustawieniach aplikacji.</p>
+              <p>Rejestracja wymaga skonfigurowanej bazy danych MySQL. Skonfiguruj baze w ustawieniach aplikacji.</p>
             </div>
           )}
         </CardContent>

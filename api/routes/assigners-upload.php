@@ -1,5 +1,11 @@
 <?php
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../auth.php';
+
+$userId = getUserId();
+if (!$userId && !tryRefreshAccess()) {
+    jsonResponse(['error' => 'Unauthorized'], 401);
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -49,5 +55,5 @@ try {
     ]);
 } catch (Exception $e) {
     error_log('Error uploading avatar: ' . $e->getMessage());
-    jsonResponse(['error' => 'Błąd podczas uploadowania awatara', 'details' => $e->getMessage()], 500);
+    jsonResponse(['error' => 'Błąd podczas uploadowania awatara'], 500);
 }

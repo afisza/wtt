@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../storage.php';
+require_once __DIR__ . '/../totp.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -19,6 +20,12 @@ try {
         jsonResponse(['error' => 'Email i hasło są wymagane'], 400);
     }
 
+    // Rate limiting: max 5 attempts per email per 15 minutes
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    if (!checkRateLimit("login:{$ip}:{$email}", 5, 900)) {
+        jsonResponse(['error' => 'Zbyt wiele prób logowania. Spróbuj ponownie za 15 minut.'], 429);
+    }
+
     // Sprawdź tryb przechowywania danych
     if (!isMySQLAvailable()) {
         jsonResponse([
@@ -32,7 +39,22 @@ try {
             jsonResponse(['error' => 'Błąd połączenia z bazą danych. Sprawdź konfigurację MySQL.'], 503);
         }
 
-        $stmt = $pdo->prepare('SELECT id, email, password FROM users WHERE email = ?');
+        // Check if totp_secret column exists
+        $hasTotpCol = false;
+        try {
+            $colCheck = $pdo->prepare(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'totp_secret'"
+            );
+            $colCheck->execute();
+            $hasTotpCol = $colCheck->rowCount() > 0;
+        } catch (Exception $e) { /* ignore */ }
+
+        $selectCols = $hasTotpCol
+            ? 'SELECT id, email, password, totp_secret FROM users WHERE email = ?'
+            : 'SELECT id, email, password FROM users WHERE email = ?';
+
+        $stmt = $pdo->prepare($selectCols);
         $stmt->execute([$email]);
         $user = $stmt->fetch();
 
@@ -44,16 +66,26 @@ try {
             jsonResponse(['error' => 'Nieprawidłowy email lub hasło'], 401);
         }
 
-        $token = createToken((int)$user['id'], $user['email']);
+        // Check 2FA
+        $totpSecret = $user['totp_secret'] ?? null;
+        $has2FA = !empty($totpSecret) && !str_starts_with($totpSecret, 'pending:');
 
-        setcookie('auth_token', $token, [
-            'expires'  => time() + 7 * 86400,
-            'path'     => '/',
-            'httponly'  => false,
-            'samesite' => 'Lax',
-        ]);
+        if ($has2FA) {
+            $totpCode = $body['totpCode'] ?? '';
+            if (empty($totpCode)) {
+                // Password OK but 2FA code needed — return special response
+                jsonResponse(['requires2FA' => true], 200);
+            }
+            if (!totpVerifyCode($totpSecret, $totpCode)) {
+                jsonResponse(['error' => 'Nieprawidłowy kod 2FA'], 401);
+            }
+        }
 
-        jsonResponse(['token' => $token, 'success' => true]);
+        $accessToken = createToken((int)$user['id'], $user['email']);
+        $refreshToken = createRefreshToken((int)$user['id'], $user['email']);
+        setAuthCookies($accessToken, $refreshToken);
+
+        jsonResponse(['success' => true]);
 
     } catch (PDOException $e) {
         error_log('Database error: ' . $e->getMessage());

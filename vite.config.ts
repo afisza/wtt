@@ -10,6 +10,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:80',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '/wtt/api'),
       },
     },
   },

@@ -63,5 +63,5 @@ try {
 } catch (Exception $e) {
     error_log('Database info error: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => $e->getMessage() ?: 'Failed to get database info']);
+    echo json_encode(['error' => 'Blad pobierania informacji o bazie danych']);
 }

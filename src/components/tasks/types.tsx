@@ -31,9 +31,20 @@ export function attachmentSrc(url: string): string {
   return basePath + (url.startsWith('/') ? url : `/${url}`)
 }
 
+/** Validate that a URL is safe (http/https only) */
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 // Funkcja do wykrywania i renderowania linków w tekście
 export const renderTextWithLinks = (text: string) => {
-  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,}[^\s]*)/g
+  // Only match URLs with explicit protocol or www. prefix
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g
 
   const parts: (string | React.ReactElement)[] = []
   let lastIndex = 0
@@ -48,21 +59,23 @@ export const renderTextWithLinks = (text: string) => {
     let url = match[0]
     if (url.startsWith('www.')) {
       url = 'https://' + url
-    } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url
     }
 
-    parts.push(
-      <a
-        key={`link-${keyCounter++}`}
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-[color:var(--app-accent)] underline cursor-pointer break-all hover:opacity-85"
-      >
-        {match[0]}
-      </a>
-    )
+    if (isSafeUrl(url)) {
+      parts.push(
+        <a
+          key={`link-${keyCounter++}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[color:var(--app-accent)] underline cursor-pointer break-all hover:opacity-85"
+        >
+          {match[0]}
+        </a>
+      )
+    } else {
+      parts.push(match[0])
+    }
 
     lastIndex = match.index + match[0].length
   }

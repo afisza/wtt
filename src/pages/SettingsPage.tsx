@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router'
 import { useEffect, useState } from 'react'
 import React from 'react'
-import Cookies from 'js-cookie'
 import { basePath } from '@/lib/apiBase'
 import { useTheme } from '@/contexts/ThemeContext'
 import { Settings, Sun, Moon, ChevronRight, Home } from 'lucide-react'
@@ -13,6 +12,7 @@ import InfoTab from '@/components/settings/InfoTab'
 import RateTab from '@/components/settings/RateTab'
 import AssignersTab from '@/components/settings/AssignersTab'
 import ClientsTab from '@/components/settings/ClientsTab'
+import TwoFactorTab from '@/components/settings/TwoFactorTab'
 
 const SettingsPage = (): React.ReactElement | null => {
   const navigate = useNavigate()
@@ -23,44 +23,31 @@ const SettingsPage = (): React.ReactElement | null => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const token = Cookies.get('auth_token')
-      if (!token) {
-        navigate('/')
-        return
-      }
-
       try {
         const response = await fetch(`${basePath}/api/auth/verify`, {
           credentials: 'include',
         })
-
-        if (!response.ok) {
-          Cookies.remove('auth_token', { path: '/' })
-          navigate('/')
-          return
+        if (response.ok) {
+          const data = await response.json()
+          if (data.authenticated) {
+            setIsAuthenticated(true)
+            setLoading(false)
+            return
+          }
         }
-
-        const data = await response.json()
-        if (!data.authenticated) {
-          Cookies.remove('auth_token', { path: '/' })
-          navigate('/')
-          return
-        }
-
-        setIsAuthenticated(true)
-        setLoading(false)
-      } catch (error) {
-        console.error('Error verifying auth:', error)
-        Cookies.remove('auth_token', { path: '/' })
-        navigate('/')
-      }
+      } catch { /* ignore */ }
+      navigate('/')
     }
-
     checkAuth()
   }, [navigate])
 
-  const handleLogout = () => {
-    Cookies.remove('auth_token')
+  const handleLogout = async () => {
+    try {
+      await fetch(`${basePath}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+    } catch { /* ignore */ }
     navigate('/')
   }
 
@@ -151,6 +138,7 @@ const SettingsPage = (): React.ReactElement | null => {
             <TabsTrigger value="rate" className="text-sm">Stawka godzinowa</TabsTrigger>
             <TabsTrigger value="assigners" className="text-sm">Osoby zlecające</TabsTrigger>
             <TabsTrigger value="clients" className="text-sm">Klienci</TabsTrigger>
+            <TabsTrigger value="2fa" className="text-sm">2FA</TabsTrigger>
           </TabsList>
 
           <TabsContent value="config">
@@ -171,6 +159,10 @@ const SettingsPage = (): React.ReactElement | null => {
 
           <TabsContent value="clients">
             <ClientsTab />
+          </TabsContent>
+
+          <TabsContent value="2fa">
+            <TwoFactorTab />
           </TabsContent>
         </Tabs>
       </div>

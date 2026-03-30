@@ -95,7 +95,7 @@ if ($method === 'POST') {
         jsonResponse($newClient);
     } catch (Exception $e) {
         error_log('Error creating client: ' . $e->getMessage());
-        jsonResponse(['error' => 'Failed to create client', 'details' => $e->getMessage()], 500);
+        jsonResponse(['error' => 'Failed to create client'], 500);
     }
 }
 
@@ -142,10 +142,7 @@ if ($method === 'PUT') {
             // Usuń stare logo jeśli zmieniono
             $oldClient = $userClients[$clientIndex];
             if (!empty($oldClient['logo']) && $oldClient['logo'] !== $logo && strpos($oldClient['logo'], '/avatars/') === 0) {
-                $oldLogoPath = dirname(__DIR__) . $oldClient['logo'];
-                if (file_exists($oldLogoPath)) {
-                    @unlink($oldLogoPath);
-                }
+                safeUnlink(dirname(__DIR__) . $oldClient['logo'], AVATARS_DIR);
             }
 
             $key = isset($data[$userId]) ? $userId : (string)$userId;
@@ -174,10 +171,7 @@ if ($method === 'PUT') {
 
         // Usuń stare logo jeśli zmieniono
         if (!empty($existing['logo']) && $existing['logo'] !== $logo && strpos($existing['logo'], '/avatars/') === 0) {
-            $oldLogoPath = dirname(__DIR__) . $existing['logo'];
-            if (file_exists($oldLogoPath)) {
-                @unlink($oldLogoPath);
-            }
+            safeUnlink(dirname(__DIR__) . $existing['logo'], AVATARS_DIR);
         }
 
         $stmt = $pdo->prepare('UPDATE clients SET name = ?, logo = ?, website = ? WHERE id = ? AND user_id = ?');
@@ -192,7 +186,7 @@ if ($method === 'PUT') {
         ]);
     } catch (Exception $e) {
         error_log('Error updating client: ' . $e->getMessage());
-        jsonResponse(['error' => 'Failed to update client', 'details' => $e->getMessage()], 500);
+        jsonResponse(['error' => 'Failed to update client'], 500);
     }
 }
 
@@ -233,10 +227,7 @@ if ($method === 'DELETE') {
 
             // Usuń logo jeśli istnieje
             if (!empty($client['logo']) && strpos($client['logo'], '/avatars/') === 0) {
-                $logoPath = dirname(__DIR__) . $client['logo'];
-                if (file_exists($logoPath)) {
-                    @unlink($logoPath);
-                }
+                safeUnlink(dirname(__DIR__) . $client['logo'], AVATARS_DIR);
             }
 
             $key = isset($data[$userId]) ? $userId : (string)$userId;
@@ -259,10 +250,7 @@ if ($method === 'DELETE') {
 
         // Usuń logo jeśli istnieje
         if (!empty($existing['logo']) && strpos($existing['logo'], '/avatars/') === 0) {
-            $logoPath = dirname(__DIR__) . $existing['logo'];
-            if (file_exists($logoPath)) {
-                @unlink($logoPath);
-            }
+            safeUnlink(dirname(__DIR__) . $existing['logo'], AVATARS_DIR);
         }
 
         // Usuń klienta (cascade usunie powiązane work_days i tasks)
@@ -272,7 +260,7 @@ if ($method === 'DELETE') {
         jsonResponse(['success' => true]);
     } catch (Exception $e) {
         error_log('Error deleting client: ' . $e->getMessage());
-        jsonResponse(['error' => 'Failed to delete client', 'details' => $e->getMessage()], 500);
+        jsonResponse(['error' => 'Failed to delete client'], 500);
     }
 }
 

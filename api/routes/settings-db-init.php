@@ -152,15 +152,7 @@ try {
         }
     }
 
-    // Wstaw domyslnego uzytkownika jesli nie istnieje
-    $stmt = $connection->prepare("SELECT id FROM users WHERE email = ?");
-    $stmt->execute(['admin@wtt.pl']);
-
-    if ($stmt->rowCount() === 0) {
-        $hashedPassword = password_hash('admin123', PASSWORD_BCRYPT);
-        $stmt = $connection->prepare("INSERT INTO users (email, password) VALUES (?, ?)");
-        $stmt->execute(['admin@wtt.pl', $hashedPassword]);
-    }
+    // No default admin account — users must register via the app
 
     // Resetuj pool polaczen
     resetDb();
@@ -178,8 +170,7 @@ try {
     error_log('Error initializing database: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode([
-        'error' => $e->getMessage() ?: 'Failed to initialize database',
-        'details' => $e->getCode(),
+        'error' => 'Blad inicjalizacji bazy danych. Sprawdz logi serwera.',
     ]);
 } finally {
     $connection = null;

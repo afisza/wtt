@@ -69,7 +69,7 @@ function handleGet(): void {
         } catch (Exception $e) {
             error_log('[SEARCH] MySQL search error: ' . $e->getMessage());
             http_response_code(500);
-            echo json_encode(['error' => 'Search error', 'details' => $e->getMessage()]);
+            echo json_encode(['error' => 'Search error']);
             return;
         }
     } else {
@@ -78,7 +78,7 @@ function handleGet(): void {
         } catch (Exception $e) {
             error_log('[SEARCH] JSON search error: ' . $e->getMessage());
             http_response_code(500);
-            echo json_encode(['error' => 'Search error', 'details' => $e->getMessage()]);
+            echo json_encode(['error' => 'Search error']);
             return;
         }
     }

@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router'
 import LoginForm from '@/components/LoginForm'
 import ClientTabs from '@/components/ClientTabs'
 const OnboardingTour = lazy(() => import('@/components/OnboardingTour'))
-import Cookies from 'js-cookie'
 import { basePath } from '@/lib/apiBase'
 import { Settings, LogOut, Menu, Calendar, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,42 +23,17 @@ export default function HomePage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      let token = Cookies.get('auth_token')
-
-      if (!token) {
-        const cookies = document.cookie.split(';')
-        const authCookie = cookies.find(c => c.trim().startsWith('auth_token='))
-        if (authCookie) {
-          token = authCookie.split('=')[1]
-        }
-      }
-
-      if (token) {
-        try {
-          const response = await fetch(`${basePath}/api/auth/verify`, {
-            credentials: 'include',
-          })
-
-          if (!response.ok) {
-            Cookies.remove('auth_token', { path: '/' })
-            setIsAuthenticated(false)
-            setLoading(false)
-            return
-          }
-
+      try {
+        const response = await fetch(`${basePath}/api/auth/verify`, {
+          credentials: 'include',
+        })
+        if (response.ok) {
           const data = await response.json()
-
-          if (data.authenticated) {
-            setIsAuthenticated(true)
-          } else {
-            Cookies.remove('auth_token', { path: '/' })
-            setIsAuthenticated(false)
-          }
-        } catch (error) {
-          Cookies.remove('auth_token', { path: '/' })
+          setIsAuthenticated(data.authenticated === true)
+        } else {
           setIsAuthenticated(false)
         }
-      } else {
+      } catch {
         setIsAuthenticated(false)
       }
       setLoading(false)
@@ -67,34 +41,17 @@ export default function HomePage() {
     checkAuth()
   }, [])
 
-  useEffect(() => {
-    const token = Cookies.get('auth_token')
-    if (token && !isAuthenticated) {
-      const checkAuth = async () => {
-        try {
-          const response = await fetch(`${basePath}/api/auth/verify`, {
-            credentials: 'include',
-          })
-          if (response.ok) {
-            const data = await response.json()
-            if (data.authenticated) {
-              setIsAuthenticated(true)
-            }
-          }
-        } catch (error) {
-          console.error('Error re-checking auth:', error)
-        }
-      }
-      checkAuth()
-    }
-  }, [isAuthenticated])
-
   const handleLogin = () => {
     setIsAuthenticated(true)
   }
 
-  const handleLogout = () => {
-    Cookies.remove('auth_token', { path: '/' })
+  const handleLogout = async () => {
+    try {
+      await fetch(`${basePath}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+    } catch { /* ignore */ }
     setIsAuthenticated(false)
     navigate('/')
   }

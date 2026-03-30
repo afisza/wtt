@@ -50,46 +50,13 @@ try {
     $existingUser = $stmt->fetchAll();
 
     if (empty($existingUser)) {
-        error_log("[MIGRATION DEBUG] User $userId does not exist, creating...");
-        try {
-            $defaultEmail = 'admin@wtt.pl';
-            $defaultPassword = password_hash('admin123', PASSWORD_BCRYPT);
-
-            $stmt = $pdo->prepare('INSERT INTO users (id, email, password) VALUES (?, ?, ?)');
-            $stmt->execute([$userId, $defaultEmail, $defaultPassword]);
-            error_log("[MIGRATION DEBUG] Created user $userId with email $defaultEmail");
-        } catch (PDOException $userError) {
-            error_log("[MIGRATION ERROR] Could not create user $userId: " . $userError->getMessage());
-            // Sprawdz czy istnieje z innym ID
-            $stmt = $pdo->query('SELECT id, email FROM users');
-            $allUsers = $stmt->fetchAll();
-
-            $userWithEmail = null;
-            foreach ($allUsers as $u) {
-                if ($u['email'] === 'admin@wtt.pl') {
-                    $userWithEmail = $u;
-                    break;
-                }
-            }
-
-            if ($userWithEmail) {
-                http_response_code(400);
-                echo json_encode([
-                    'success' => false,
-                    'error' => "Uzytkownik o ID $userId nie istnieje w bazie. Istnieje uzytkownik z emailem admin@wtt.pl o ID {$userWithEmail['id']}. Zaloguj sie ponownie lub uzyj tego uzytkownika.",
-                    'migrated' => ['days' => 0, 'tasks' => 0],
-                ]);
-                exit;
-            }
-
-            http_response_code(500);
-            echo json_encode([
-                'success' => false,
-                'error' => 'Nie mozna utworzyc uzytkownika: ' . $userError->getMessage(),
-                'migrated' => ['days' => 0, 'tasks' => 0],
-            ]);
-            exit;
-        }
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'error' => "Uzytkownik o ID $userId nie istnieje w bazie. Zaloguj sie ponownie.",
+            'migrated' => ['days' => 0, 'tasks' => 0],
+        ]);
+        exit;
     } else {
         error_log("[MIGRATION DEBUG] User $userId exists in database");
     }
@@ -522,8 +489,7 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage() ?: 'Blad podczas migracji danych',
-        'details' => (string)$e,
+        'error' => 'Blad podczas migracji danych. Sprawdz logi serwera.',
     ]);
 }
 

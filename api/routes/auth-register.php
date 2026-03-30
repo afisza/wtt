@@ -24,9 +24,12 @@ try {
         jsonResponse(['error' => 'Nieprawidłowy format emaila'], 400);
     }
 
-    // Walidacja hasła (minimum 6 znaków)
-    if (strlen($password) < 6) {
-        jsonResponse(['error' => 'Hasło musi mieć minimum 6 znaków'], 400);
+    // Walidacja hasła
+    if (strlen($password) < 8) {
+        jsonResponse(['error' => 'Hasło musi mieć minimum 8 znaków'], 400);
+    }
+    if (!preg_match('/[A-Z]/', $password) || !preg_match('/[a-z]/', $password) || !preg_match('/[0-9]/', $password)) {
+        jsonResponse(['error' => 'Hasło musi zawierać wielką literę, małą literę i cyfrę'], 400);
     }
 
     // Sprawdź tryb przechowywania danych
@@ -57,18 +60,11 @@ try {
         $stmt->execute([$email, $hashedPassword]);
         $userId = (int)$pdo->lastInsertId();
 
-        // Utwórz token JWT
-        $token = createToken($userId, $email);
-
-        setcookie('auth_token', $token, [
-            'expires'  => time() + 7 * 86400,
-            'path'     => '/',
-            'httponly'  => false,
-            'samesite' => 'Lax',
-        ]);
+        $accessToken = createToken($userId, $email);
+        $refreshToken = createRefreshToken($userId, $email);
+        setAuthCookies($accessToken, $refreshToken);
 
         jsonResponse([
-            'token'   => $token,
             'user'    => ['id' => $userId, 'email' => $email],
             'success' => true,
         ]);

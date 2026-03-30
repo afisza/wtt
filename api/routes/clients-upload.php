@@ -20,15 +20,16 @@ try {
 
     $file = $_FILES['file'];
 
-    // Sprawdź typ pliku
-    $validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    // Sprawdź typ pliku (SVG blocked — can contain XSS scripts)
+    $validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     $extension  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    $isValidType = in_array($file['type'], $validTypes) || $extension === 'svg';
+    $blockedExts = ['svg', 'svgz', 'html', 'htm', 'php', 'js'];
+    $isValidType = in_array($file['type'], $validTypes) && !in_array($extension, $blockedExts);
 
     if (!$isValidType) {
         jsonResponse([
             'error'   => 'Invalid file type',
-            'details' => 'Dozwolone formaty: JPEG, PNG, GIF, WebP, SVG',
+            'details' => 'Dozwolone formaty: JPEG, PNG, GIF, WebP',
         ], 400);
     }
 
@@ -66,5 +67,5 @@ try {
     jsonResponse(['url' => '/avatars/' . $fileName]);
 } catch (Exception $e) {
     error_log('Error uploading logo: ' . $e->getMessage());
-    jsonResponse(['error' => 'Failed to upload logo', 'details' => $e->getMessage()], 500);
+    jsonResponse(['error' => 'Failed to upload logo'], 500);
 }
