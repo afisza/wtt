@@ -1,0 +1,5 @@
+dist/
+node_modules/
+api/vendor/
+*.min.js
+*.min.css

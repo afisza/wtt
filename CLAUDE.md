@@ -85,6 +85,11 @@ Production deploy uses flat structure (no `dist/` prefix). Build process:
 3. Use production `.htaccess` (SPA fallback to `index.html`, not `dist/index.html`)
 4. Set `$basePath = '/api'` in `api/index.php` (dev uses `/wtt/api`)
 
+## AI Tool Configs
+
+- **CLAUDE.md** (this file) is the authoritative source for Claude Code
+- `.cursorrules` exists but is **outdated** — references Next.js (project migrated to Vite). Do not rely on it.
+
 ## Files Not to Commit
 
 - `data/db-config.json`, `data/.jwt-secret`, `data/rate-limits/`
