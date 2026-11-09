@@ -13,6 +13,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Log in and list
         env:
@@ -53,20 +54,24 @@ jobs:
             open --env-password -u '${FTP_USERNAME}' '${FTP_SERVER}';
           "
           echo '--- katalog główny FTP (pwd + lista) ---'
-          lftp -c "${COMMON} pwd; cls -1 --sort=name -a ./;"
-          for d in domains/timer.afisza.com/ domains/timer.afisza.com/public_html/ public_html/; do
-            echo "--- ${d} ---"
-            lftp -c "${COMMON} cls -1 --sort=name -a ${d};" 2>&1 | head -60 || echo '(brak)'
-          done
-          # Obecny .htaccess na serwerze — wdrożenie go nadpisze, więc porównujemy go z deploy/htaccess.production.
-          for f in domains/timer.afisza.com/public_html/.htaccess domains/timer.afisza.com/.htaccess public_html/.htaccess; do
+          timeout 120 lftp -c "${COMMON} pwd; cls -1 --sort=name -a ./;"
+          # Konto FTP startuje w katalogu domeny, więc katalog strony to `public_html/`.
+          echo '--- public_html/ ---'
+          timeout 120 lftp -c "${COMMON} cls -1 --sort=name -a public_html/;" 2>&1 | head -80 || echo '(brak)'
+          # Obecny .htaccess — wdrożenie go nadpisze, więc porównujemy go z deploy/htaccess.production.
+          # Najpierw `cls`: `cat` nieistniejącego pliku wisiał tu w nieskończoność.
+          for f in public_html/.htaccess; do
             echo "--- zawartość ${f} ---"
-            lftp -c "${COMMON} cat ${f};" 2>/dev/null || echo '(brak)'
+            if timeout 60 lftp -c "${COMMON} cls -1 ${f};" >/dev/null 2>&1; then
+              timeout 120 lftp -c "${COMMON} cat ${f};" || echo '(nie udało się odczytać)'
+            else
+              echo '(brak)'
+            fi
           done
           if [ -n "${DEPLOY_PATH}" ]; then
             echo "--- DEPLOY_PATH = ${DEPLOY_PATH} ---"
-            lftp -c "${COMMON} cls -1 --sort=name -a ${DEPLOY_PATH};"
-            if lftp -c "${COMMON} cls -1 ${DEPLOY_PATH}.ht-deploy-manifest;" > /dev/null 2>&1; then
+            timeout 120 lftp -c "${COMMON} cls -1 --sort=name -a ${DEPLOY_PATH};"
+            if timeout 60 lftp -c "${COMMON} cls -1 ${DEPLOY_PATH}.ht-deploy-manifest;" > /dev/null 2>&1; then
               echo 'Spis wdrożenia jest na serwerze: następne wdrożenie wyśle tylko zmienione pliki.'
             else
               echo 'Brak spisu wdrożenia: pierwsze wdrożenie wyśle wszystkie pliki.'

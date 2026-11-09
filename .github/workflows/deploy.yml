@@ -38,6 +38,8 @@ jobs:
   release:
     name: Deploy (production)
     runs-on: ubuntu-latest
+    # Zawieszone połączenie FTP nie może blokować runnera godzinami.
+    timeout-minutes: 30
     if: vars.DEPLOY_ENABLED == 'true'
     permissions:
       contents: write
@@ -191,16 +193,18 @@ jobs:
             echo 'Wymuszono pełne wdrożenie — lecą wszystkie pliki.'
             : > remote-manifest.txt
           else
-            lftp -c "${COMMON} get ${DEPLOY_PATH}${REMOTE_MANIFEST} -o remote-manifest.txt;" \
-              || echo 'Nie udało się pobrać spisu z serwera.'
-            if [ ! -s remote-manifest.txt ]; then
-              rm -f remote-manifest.txt
-              : > remote-manifest.txt
+            # Najpierw `cls`: `get`/`cat` nieistniejącego pliku potrafi na tym ProFTPD wisieć
+            # w nieskończoność (tak zawiesił się FTP check), a `cls` od razu zwraca 550.
+            if timeout 120 lftp -c "${COMMON} cls -1 ${DEPLOY_PATH}${REMOTE_MANIFEST};" >/dev/null 2>&1; then
+              timeout 180 lftp -c "${COMMON} get ${DEPLOY_PATH}${REMOTE_MANIFEST} -o remote-manifest.txt;" \
+                || true
               # „Spisu nie ma” ≠ „spis jest, ale go nie pobraliśmy”.
-              if lftp -c "${COMMON} cls -1 ${DEPLOY_PATH}${REMOTE_MANIFEST};" >/dev/null 2>&1; then
+              if [ ! -s remote-manifest.txt ]; then
                 echo "::error::Spis ${REMOTE_MANIFEST} JEST na serwerze, ale nie udało się go pobrać — przerywam."
                 exit 1
               fi
+            else
+              : > remote-manifest.txt
               echo 'Brak spisu na serwerze (pierwsze wdrożenie) — lecą wszystkie pliki.'
             fi
           fi
@@ -254,7 +258,7 @@ jobs:
           } > lftp-commands.txt
 
           trap 'rm -f lftp-commands.txt' EXIT
-          lftp -f lftp-commands.txt
+          timeout 1200 lftp -f lftp-commands.txt
 
       - name: Health check
         env:
