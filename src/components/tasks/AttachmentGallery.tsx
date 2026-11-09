@@ -1,15 +1,29 @@
-import React from 'react'
-import { FileText, X } from 'lucide-react'
-import { attachmentSrc } from './types'
-import { basePath } from '@/lib/apiBase'
-import { useToast } from '@/contexts/ToastContext'
+import { useRef, useState } from 'react';
+import { FileText, Paperclip, X, Loader2 } from 'lucide-react';
+import { attachmentSrc } from './types';
+import { apiFetch } from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
+import { cn } from '@/lib/utils';
 
 interface AttachmentGalleryProps {
-  attachments: string[]
-  onChangeAttachments?: (urls: string[]) => void
-  taskId?: string
-  onOpenLightbox: (urls: string[], index: number) => void
-  editable?: boolean
+  attachments: string[];
+  onChangeAttachments?: (urls: string[]) => void;
+  taskId?: string;
+  onOpenLightbox: (urls: string[], index: number) => void;
+  editable?: boolean;
+}
+
+const isImage = (url: string) =>
+  /\.(jpe?g|png|gif|webp)$/i.test(url) || url.includes('/task-attachments/');
+
+export async function uploadTaskAttachment(taskId: string, file: File): Promise<string | null> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('taskId', taskId);
+  const res = await apiFetch('/api/task-attachments/upload', { method: 'POST', body: form });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || 'Nie udało się wysłać pliku');
+  return data?.url ?? null;
 }
 
 export default function AttachmentGallery({
@@ -19,160 +33,136 @@ export default function AttachmentGallery({
   onOpenLightbox,
   editable = false,
 }: AttachmentGalleryProps) {
-  const { showToast } = useToast()
-  const [uploadingAttachment, setUploadingAttachment] = React.useState(false)
-
-  const deleteTaskAttachment = async (url: string): Promise<void> => {
-    const res = await fetch(`${basePath}/api/task-attachments?url=${encodeURIComponent(url)}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    })
-    if (!res.ok) throw new Error('Błąd usuwania pliku')
-  }
-
-  const uploadTaskAttachment = async (tid: string, file: File): Promise<string | null> => {
-    const form = new FormData()
-    form.append('file', file)
-    form.append('taskId', tid)
-    const res = await fetch(`${basePath}/api/task-attachments/upload`, {
-      method: 'POST',
-      credentials: 'include',
-      body: form,
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      throw new Error(data?.error || 'Błąd uploadu')
-    }
-    const data = await res.json()
-    return data?.url ?? null
-  }
+  const { showToast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (files: File[]) => {
-    if (!taskId || !files.length || !onChangeAttachments) return
-    setUploadingAttachment(true)
+    if (!taskId || !files.length || !onChangeAttachments) return;
+    setUploading(true);
     try {
       const urls = await Promise.all(
-        files.slice(0, 10 - attachments.length).map(f => uploadTaskAttachment(taskId, f))
-      )
-      onChangeAttachments([...attachments, ...urls.filter(Boolean) as string[]])
-      showToast('Załącznik dodany', 'success')
+        files.slice(0, 10 - attachments.length).map((f) => uploadTaskAttachment(taskId, f)),
+      );
+      onChangeAttachments([...attachments, ...(urls.filter(Boolean) as string[])]);
     } catch (err: any) {
-      showToast(err?.message || 'Błąd dodawania załącznika', 'error')
+      showToast(err?.message || 'Błąd dodawania załącznika', 'error');
     } finally {
-      setUploadingAttachment(false)
+      setUploading(false);
     }
-  }
+  };
 
   const handleDelete = async (url: string, idx: number) => {
-    if (!onChangeAttachments) return
+    if (!onChangeAttachments) return;
     try {
-      await deleteTaskAttachment(url)
-    } catch (_) {
-      // ignore – remove locally regardless
+      await apiFetch(`/api/task-attachments?url=${encodeURIComponent(url)}`, { method: 'DELETE' });
+    } catch {
+      /* usuń lokalnie mimo błędu */
     }
-    onChangeAttachments(attachments.filter((_, i) => i !== idx))
-  }
+    onChangeAttachments(attachments.filter((_, i) => i !== idx));
+  };
+
+  const thumb = (url: string, idx: number, size: 'sm' | 'md') => (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenLightbox(attachments, idx);
+      }}
+      aria-label={`Otwórz załącznik ${idx + 1}`}
+      className={cn(
+        'grid place-items-center overflow-hidden rounded-md border bg-muted transition-transform hover:scale-[1.04]',
+        size === 'sm' ? 'h-8 w-8' : 'h-12 w-12',
+      )}
+    >
+      {isImage(url) ? (
+        <img
+          src={attachmentSrc(url)}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <FileText className="h-4 w-4 text-muted-foreground" />
+      )}
+    </button>
+  );
 
   if (!editable) {
-    // View mode – compact thumbnails (max 5 + overflow count)
-    if (!attachments || attachments.length === 0) return null
+    if (!attachments?.length) return null;
     return (
-      <div className="flex flex-wrap gap-1 mt-1">
-        {attachments.slice(0, 5).map((url, idx) => {
-          const isImg = /\.(jpe?g|png|gif|webp)$/i.test(url) || url.includes('/task-attachments/')
-          return (
-            <div
-              key={idx}
-              role="button"
-              tabIndex={0}
-              onClick={() => onOpenLightbox(attachments, idx)}
-              onKeyDown={(e) => e.key === 'Enter' && onOpenLightbox(attachments, idx)}
-              aria-label={`Otwórz załącznik ${idx + 1}`}
-              className="w-7 h-7 rounded-[4px] overflow-hidden border border-[var(--app-border)] cursor-pointer flex items-center justify-center bg-[var(--app-card-alt)] focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {isImg ? (
-                <img src={attachmentSrc(url)} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <FileText size={14} className="text-[var(--app-text-muted)]" />
-              )}
-            </div>
-          )
-        })}
-        {attachments.length > 5 && (
-          <span className="text-[10px] text-[var(--app-text-muted)] self-center">
-            +{attachments.length - 5}
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        {attachments.slice(0, 6).map((url, idx) => (
+          <span key={url + idx}>{thumb(url, idx, 'sm')}</span>
+        ))}
+        {attachments.length > 6 && (
+          <span className="tabular text-[11px] text-muted-foreground">
+            +{attachments.length - 6}
           </span>
         )}
       </div>
-    )
+    );
   }
 
-  // Editable mode – larger thumbnails with delete button + upload zone
   return (
-    <div>
-      <div className="flex flex-wrap gap-1.5 items-center mb-1.5">
-        {attachments.map((url, idx) => {
-          const isImg = /\.(jpe?g|png|gif|webp)$/i.test(url) || url.includes('/task-attachments/')
-          return (
-            <div key={idx} className="relative">
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => onOpenLightbox(attachments, idx)}
-                onKeyDown={(e) => e.key === 'Enter' && onOpenLightbox(attachments, idx)}
-                aria-label={`Otwórz załącznik ${idx + 1}`}
-                className="w-10 h-10 rounded-md overflow-hidden border border-[var(--app-border)] cursor-pointer flex items-center justify-center bg-[var(--app-card-alt)] focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {isImg ? (
-                  <img src={attachmentSrc(url)} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <FileText size={20} className="text-[var(--app-text-muted)]" />
-                )}
-              </div>
+    <div className="flex flex-col gap-2">
+      {attachments.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {attachments.map((url, idx) => (
+            <div key={url + idx} className="relative">
+              {thumb(url, idx, 'md')}
               <button
                 type="button"
-                onClick={async (e) => {
-                  e.stopPropagation()
-                  await handleDelete(url, idx)
-                }}
-                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full border-none bg-red-500 text-white cursor-pointer flex items-center justify-center p-0 focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => handleDelete(url, idx)}
+                className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-destructive text-destructive-foreground"
                 aria-label={`Usuń załącznik ${idx + 1}`}
-                title="Usuń"
               >
-                <X size={12} />
+                <X className="h-3 w-3" />
               </button>
             </div>
-          )
-        })}
-      </div>
+          ))}
+        </div>
+      )}
       {attachments.length < 10 && (
-        <div
-          onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.background = 'var(--app-border)' }}
-          onDragLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-          onDrop={(e) => {
-            e.preventDefault()
-            e.currentTarget.style.background = 'transparent'
-            const files = Array.from(e.dataTransfer.files)
-            handleUpload(files)
+        <button
+          type="button"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
           }}
-          onClick={() => document.getElementById('edit-attachment-input')?.click()}
-          className="border border-dashed border-[var(--app-border)] rounded-md p-2 text-center text-[11px] text-[var(--app-text-muted)] cursor-pointer bg-transparent"
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            void handleUpload(Array.from(e.dataTransfer.files));
+          }}
+          onClick={() => inputRef.current?.click()}
+          className={cn(
+            'flex items-center justify-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-ring hover:text-foreground',
+            dragOver && 'border-ring bg-highlight/10',
+          )}
         >
+          {uploading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Paperclip className="h-3.5 w-3.5" />
+          )}
+          {uploading ? 'Wysyłanie…' : 'Dodaj pliki (lub upuść tutaj)'}
           <input
-            id="edit-attachment-input"
+            ref={inputRef}
             type="file"
             multiple
             accept="image/*,.pdf,.doc,.docx"
             className="hidden"
             onChange={(e) => {
-              const files = e.target.files ? Array.from(e.target.files) : []
-              e.target.value = ''
-              handleUpload(files)
+              const files = e.target.files ? Array.from(e.target.files) : [];
+              e.target.value = '';
+              void handleUpload(files);
             }}
           />
-          {uploadingAttachment ? 'Dodawanie…' : 'Przeciągnij pliki lub kliknij'}
-        </div>
+        </button>
       )}
     </div>
-  )
+  );
 }

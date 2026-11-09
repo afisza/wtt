@@ -117,12 +117,58 @@ function getMonthDataJSON(int $userId, string $monthKey, int $clientId): array {
     return $result;
 }
 
+/**
+ * Zapis dni do JSON — scala z istniejącymi danymi (te same zasady co MySQL):
+ * upsert po `id`, usuwanie wyłącznie zadań wskazanych w `deletedIds`.
+ * Dni nieobecne w payloadzie pozostają nietknięte.
+ */
 function saveMonthDataJSON(int $userId, string $monthKey, array $daysData, int $clientId): void {
     $file = DATA_DIR . '/work-time.json';
     ensureDataFile($file);
-    $data = json_decode(file_get_contents($file), true) ?: [];
-    if (!isset($data[$userId])) $data[$userId] = [];
-    if (!isset($data[$userId][$clientId])) $data[$userId][$clientId] = [];
-    $data[$userId][$clientId][$monthKey] = $daysData;
-    file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    $fp = fopen($file, 'c+');
+    if (!$fp) throw new Exception('Cannot open work-time.json');
+    try {
+        if (!flock($fp, LOCK_EX)) throw new Exception('Cannot lock work-time.json');
+        $raw = stream_get_contents($fp);
+        $data = json_decode($raw ?: '{}', true) ?: [];
+
+        $month = $data[$userId][$clientId][$monthKey] ?? [];
+        foreach ($daysData as $dateKey => $dayData) {
+            $month[$dateKey] = mergeDayTasksJSON($month[$dateKey] ?? null, $dateKey, $dayData);
+        }
+        $data[$userId][$clientId][$monthKey] = $month;
+
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        if ($json === false) throw new Exception('JSON encode failed');
+        ftruncate($fp, 0);
+        rewind($fp);
+        if (fwrite($fp, $json) === false) throw new Exception('Cannot write work-time.json');
+        fflush($fp);
+    } finally {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    }
+}
+
+function mergeDayTasksJSON(?array $existingDay, string $dateKey, array $dayData): array {
+    $deletedIds = array_map('strval', is_array($dayData['deletedIds'] ?? null) ? $dayData['deletedIds'] : []);
+
+    // Istniejące zadania z poprawnym id (zadania bez id dostają je przy odczycie,
+    // więc klient odsyła je już z nowym id — stare wpisy bez id pomijamy, by nie dublować)
+    $byId = [];
+    foreach (($existingDay['tasks'] ?? []) as $t) {
+        if (is_array($t) && !empty($t['id']) && strlen(preg_replace('/\D/', '', (string)$t['id'])) >= 6) {
+            $byId[(string)$t['id']] = $t;
+        }
+    }
+    $knownIds = array_fill_keys(array_keys($byId), true);
+    foreach (normalizeTasks(is_array($dayData['tasks'] ?? null) ? $dayData['tasks'] : [], $knownIds) as $t) {
+        if (trim((string)$t['text']) === '' || in_array((string)$t['id'], $deletedIds, true)) continue;
+        $byId[(string)$t['id']] = $t;
+    }
+    foreach ($deletedIds as $id) unset($byId[$id]);
+
+    $tasks = array_values($byId);
+    return ['date' => $dateKey, 'tasks' => $tasks, 'totalHours' => calculateTotalHours($tasks)];
 }

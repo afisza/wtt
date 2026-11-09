@@ -1,48 +1,45 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
+import type { TaskStatus } from '@/components/tasks/types';
+import { statusDot } from '@/components/tasks/StatusSelect';
 
-interface ProgressBarProps {
-  value: number // 0-100
-  label?: string
-  size?: 'sm' | 'md'
-  className?: string
+interface StatusBreakdownProps {
+  counts: Record<TaskStatus, number>;
+  className?: string;
 }
 
-const colorByValue = (value: number) => {
-  if (value >= 80) return 'bg-emerald-500'
-  if (value >= 50) return 'bg-blue-500'
-  if (value >= 25) return 'bg-amber-500'
-  return 'bg-red-500'
-}
+const ORDER: TaskStatus[] = ['wykonano', 'w trakcie', 'zaplanowano', 'do zrobienia', 'anulowane'];
 
-export default function ProgressBar({ value, label, size = 'sm', className }: ProgressBarProps) {
-  const clamped = Math.min(100, Math.max(0, Math.round(value)))
-  const barHeight = size === 'sm' ? 'h-1.5' : 'h-2.5'
+/** Pasek rozkładu statusów miesiąca + legenda z liczbami. */
+export default function ProgressBar({ counts, className }: StatusBreakdownProps) {
+  const total = ORDER.reduce((s, k) => s + (counts[k] || 0), 0);
+  if (total === 0) return null;
+  const done = counts['wykonano'] || 0;
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
-      {label && (
-        <span className="text-[11px] text-muted-foreground whitespace-nowrap">{label}</span>
-      )}
-      <div className={cn('flex-1 rounded-full bg-muted overflow-hidden', barHeight)}>
-        <div
-          className={cn('h-full rounded-full transition-all duration-500 progress-bar-animated', colorByValue(clamped))}
-          style={{ width: `${clamped}%` }}
-          role="progressbar"
-          aria-valuenow={clamped}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        />
+    <div className={cn('flex flex-col gap-2', className)}>
+      <div
+        className="flex h-1.5 overflow-hidden rounded-full bg-muted"
+        role="img"
+        aria-label={`${done} z ${total} zadań wykonanych`}
+      >
+        {ORDER.map((k) =>
+          counts[k] ? (
+            <div
+              key={k}
+              className={cn('progress-bar-animated h-full', statusDot[k])}
+              style={{ width: `${(counts[k] / total) * 100}%` }}
+            />
+          ) : null,
+        )}
       </div>
-      <span className={cn(
-        'font-semibold tabular-nums whitespace-nowrap',
-        size === 'sm' ? 'text-[11px]' : 'text-xs',
-        clamped >= 80 ? 'text-emerald-600 dark:text-emerald-400' :
-        clamped >= 50 ? 'text-blue-600 dark:text-blue-400' :
-        clamped >= 25 ? 'text-amber-600 dark:text-amber-400' :
-        'text-red-600 dark:text-red-400'
-      )}>
-        {clamped}%
-      </span>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        {ORDER.filter((k) => counts[k]).map((k) => (
+          <li key={k} className="inline-flex items-center gap-1.5">
+            <span className={cn('h-1.5 w-1.5 rounded-full', statusDot[k])} />
+            {k} <span className="tabular font-semibold text-foreground">{counts[k]}</span>
+          </li>
+        ))}
+      </ul>
     </div>
-  )
+  );
 }

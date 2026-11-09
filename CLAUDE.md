@@ -18,13 +18,18 @@ npm run test:watch   # vitest in watch mode
 npx tsc --noEmit     # type-check only
 ```
 
-Run a single test file: `npx vitest run path/to/file.test.ts` (or `npx vitest path/...` for watch). Note: Vitest is configured but there are **no test files yet** (only `src/test/setup.ts`), so `npm run test` currently reports "no tests found". There is no ESLint; formatting is Prettier (`.prettierrc`, with `prettier-plugin-tailwindcss`).
+Run a single test file: `npx vitest run path/to/file.test.ts` (or `npx vitest path/...` for watch). There is no ESLint; formatting is Prettier (`.prettierrc`, with `prettier-plugin-tailwindcss`).
 
 MAMP must be running for the PHP API (Apache on :80, MySQL):
 
 ```bash
 /Applications/MAMP/bin/startApache.sh && /Applications/MAMP/bin/startMysql.sh
 ```
+
+- Dev API base is `/wtt/api` but the repo folder is `wtt (timer.afisza.com)` → locally `htdocs/wtt` is a symlink to it.
+- Start Vite with `--host localhost` (CSRF origin check rejects `127.0.0.1`).
+- **`data/db-config.json` points at the remote (production) MySQL on hostido** — local testing writes to prod data.
+  Use a throwaway account for tests or switch the config to a local DB first.
 
 ## Architecture
 
@@ -62,17 +67,36 @@ tasks       → id, work_day_id, task_uid, description, assigned_by(JSON), start
 
 Tables auto-create on first use via `ensureAssignersTable()`, `ensureSchemaColumns()`, etc. No migration tool — `database/*.sql` holds the base schema (`schema.sql`, `full_setup.sql`) and historical one-off migrations applied by hand.
 
-### Data Flow (Save)
+### Data Flow (Save) — "no lost content" design
 
 ```
-TaskList.onUpdate(tasks) → updateDayData(date, {tasks})
-  → reads daysDataRef.current (not stale closure)
-  → optimistic update: ref + setState
-  → saveData() queued via saveQueueRef (serialized, no concurrent POSTs)
-    → POST /api/work-time with entire month
-    → Backend: per-day transaction, upsert by task_uid, delete removed tasks
-    → JSON fallback always written
+TaskList.onUpdate(updater) → updateDayData(date, updater)   (hooks/useCalendarData.ts)
+  → optimistic commit to ref + state
+  → recordChange() into the OUTBOX (localStorage `wtt:outbox:v1:{clientId}`, per-day rev + deletedIds)
+  → flush (debounced 350 ms, serialized, retry backoff 2/5/10/30/60 s, keepalive flush on pagehide)
+    → POST /api/work-time with ONLY the changed days: {month: {date: {tasks, deletedIds}}}
+    → Backend upserts by task_uid and deletes ONLY ids listed in deletedIds (never "absent = deleted")
+  → ackDays(): a day leaves the outbox only if the server confirmed that exact rev
+On load the outbox is overlaid on server data, so reloads / expired sessions / offline never drop edits.
 ```
+
+- **`src/lib/api.ts`** — use `apiFetch`/`apiJson` for every API call (never raw `fetch`): on 401 it does a single-flight
+  `/api/auth/refresh` and retries; if refresh fails it emits `wtt:session-expired` → `SessionGuard` shows an inline
+  re-login dialog over the app (state is kept). The backend rotates the refresh token on each refresh (sliding 7 d).
+- **`src/lib/drafts.ts`** — open forms (add/edit/inline edit) persist to `wtt:draft:v1:{clientId}:{date}:{id}`
+  (45-day TTL) via `useDraft`; drafts are cleared only on save or explicit "Odrzuć".
+- **`src/lib/saveStatus.ts`** — global save state shown by `SaveIndicator` in the header.
+- Tests for this logic: `src/lib/*.test.ts` (`npm run test`).
+
+### Views & design system
+
+- Calendar views (`src/components/views/`): list (`DayRow`), week, month grid, Kanban (drag = change status);
+  `DayPanel` is the side sheet used by month/Kanban. Keys `1–4` switch views; drag & drop via `hooks/useTaskDrop.ts`.
+- Colors are OKLCH tokens in `src/index.css` (`--background`, `--highlight` = peach accent, `--st-*` statuses, …)
+  consumed by Tailwind as `oklch(var(--x) / <alpha-value>)`. Use token classes (`bg-card`, `text-highlight-ink`,
+  `text-status-done`), not raw hex / Tailwind palette colors. Fonts: Bricolage Grotesque (display) + Figtree.
+  Design context lives in `.impeccable.md`. `var(--app-*)` are legacy aliases kept for old components.
+- PDF export lazy-loads jsPDF + the Roboto font on click (keeps the main bundle small).
 
 ## Key Conventions
 

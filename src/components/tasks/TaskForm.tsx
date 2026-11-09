@@ -1,269 +1,308 @@
-import React, { useState } from 'react'
-import { Check, X, Clock, Paperclip } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useToast } from '@/contexts/ToastContext'
-import { basePath } from '@/lib/apiBase'
-import { Task, TaskStatus, statusOptions } from './types'
-import AssignerPicker from './AssignerPicker'
-import AttachmentGallery from './AttachmentGallery'
+import { useEffect, useRef, useState } from 'react';
+import { Clock, FileText, Paperclip, X, CloudCheck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useDraft } from '@/lib/drafts';
+import { cn } from '@/lib/utils';
+import { Task, TaskStatus } from './types';
+import AssignerPicker from './AssignerPicker';
+import AttachmentGallery from './AttachmentGallery';
+import StatusSelect from './StatusSelect';
+import type { Assigner } from '@/hooks/useCalendarData';
 
-// ── Add-mode props ───────────────────────────────────────────────────────────
-interface AddModeProps {
-  mode: 'add'
-  task?: undefined
-  taskId?: undefined
-  assigners: any[]
-  onSave: (data: {
-    text: string
-    assignedBy: string[]
-    startTime: string
-    endTime: string
-    status: TaskStatus
-    pendingFiles: File[]
-  }) => void
-  onCancel: () => void
-  uploadingAttachment?: boolean
+export interface TaskFormValues {
+  text: string;
+  assignedBy: string[];
+  startTime: string;
+  endTime: string;
+  status: TaskStatus;
+  attachments: string[];
 }
 
-// ── Edit-mode props ──────────────────────────────────────────────────────────
-interface EditModeProps {
-  mode: 'edit'
-  task: Task
-  taskId?: string
-  assigners: any[]
-  onSave: (data: {
-    text: string
-    assignedBy: string[]
-    startTime: string
-    endTime: string
-    status: TaskStatus
-    attachments: string[]
-  }) => void
-  onCancel: () => void
-  uploadingAttachment?: boolean
+interface TaskFormProps {
+  mode: 'add' | 'edit';
+  task?: Task;
+  assigners: Assigner[];
+  draftKey: string | null;
+  /** Domyślne godziny dla nowego zadania */
+  defaults?: { startTime: string; endTime: string };
+  onSave: (values: TaskFormValues, pendingFiles: File[]) => void;
+  /** Zwinięcie formularza; `discard` = szkic został świadomie odrzucony */
+  onClose: (discard: boolean) => void;
+  busy?: boolean;
+  onOpenLightbox?: (urls: string[], index: number) => void;
 }
 
-type TaskFormProps = AddModeProps | EditModeProps
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
-export default function TaskForm(props: TaskFormProps) {
-  const { mode, assigners, onSave, onCancel, uploadingAttachment = false } = props
+export default function TaskForm({
+  mode,
+  task,
+  assigners,
+  draftKey,
+  defaults,
+  onSave,
+  onClose,
+  busy,
+  onOpenLightbox,
+}: TaskFormProps) {
+  const initial: TaskFormValues =
+    mode === 'edit' && task
+      ? {
+          text: task.text,
+          assignedBy: Array.isArray(task.assignedBy) ? task.assignedBy : [],
+          startTime: task.startTime || '',
+          endTime: task.endTime || '',
+          status: task.status,
+          attachments: Array.isArray(task.attachments) ? [...task.attachments] : [],
+        }
+      : {
+          text: '',
+          assignedBy: [],
+          startTime: defaults?.startTime ?? '08:00',
+          endTime: defaults?.endTime ?? '16:00',
+          status: 'do zrobienia',
+          attachments: [],
+        };
 
-  const [text, setText] = useState(mode === 'edit' ? props.task.text : '')
-  const [assignedBy, setAssignedBy] = useState<string[]>(
-    mode === 'edit'
-      ? Array.isArray(props.task.assignedBy)
-        ? props.task.assignedBy
-        : props.task.assignedBy
-        ? [props.task.assignedBy as unknown as string]
-        : []
-      : []
-  )
-  const [startTime, setStartTime] = useState(mode === 'edit' ? props.task.startTime || '' : '')
-  const [endTime, setEndTime] = useState(mode === 'edit' ? props.task.endTime || '' : '')
-  const [status, setStatus] = useState<TaskStatus>(mode === 'edit' ? props.task.status : 'do zrobienia')
+  const initialJson = useRef(JSON.stringify(initial)).current;
+  const isPristine = (v: TaskFormValues) =>
+    mode === 'add'
+      ? !v.text.trim() && v.assignedBy.length === 0
+      : JSON.stringify(v) === initialJson;
 
-  // Edit mode: managed list of already-uploaded attachment URLs
-  const [attachments, setAttachments] = useState<string[]>(
-    mode === 'edit' ? (Array.isArray(props.task.attachments) ? [...props.task.attachments] : []) : []
-  )
+  const { value, setValue, clear, restored } = useDraft<TaskFormValues>(
+    draftKey,
+    initial,
+    isPristine,
+  );
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const dirty = !isPristine(value);
 
-  // Add mode: files pending upload (uploaded after task is created)
-  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  // Autosize textarea
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
+  }, [value.text]);
 
-  const { showToast } = useToast()
-
-  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null)
-
-  const handleOpenLightbox = (urls: string[], index: number) => {
-    setLightbox({ urls, index })
-  }
-
-  const handleSubmit = () => {
-    if (!text.trim()) return
-    if (mode === 'add') {
-      ;(props as AddModeProps).onSave({
-        text: text.trim(),
-        assignedBy,
-        startTime,
-        endTime,
-        status,
-        pendingFiles,
-      })
-    } else {
-      ;(props as EditModeProps).onSave({
-        text: text.trim(),
-        assignedBy,
-        startTime,
-        endTime,
-        status,
-        attachments,
-      })
+  useEffect(() => {
+    const el = textRef.current;
+    if (el) {
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
     }
-  }
+  }, []);
+
+  const timeInvalid = !!value.startTime && !!value.endTime && value.endTime <= value.startTime;
+
+  const submit = () => {
+    if (!value.text.trim() || busy) {
+      textRef.current?.focus();
+      return;
+    }
+    onSave({ ...value, text: value.text.trim() }, pendingFiles);
+    clear();
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      submit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      onClose(false); // szkic zostaje
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-2.5 p-[12px_14px] mt-1.5 bg-[var(--app-card)] border border-[var(--app-border)] rounded-lg shadow-sm">
-      {mode === 'edit' && props.task.id ? (
-        <div className="text-[10px] text-[var(--app-text-muted)] font-semibold mb-0.5">
-          Zadanie #{props.task.id}
+    <div
+      onKeyDown={onKeyDown}
+      className="surface-shadow animate-fade-in flex flex-col gap-3 rounded-lg border bg-card p-3 sm:p-4"
+    >
+      {(restored || mode === 'edit') && (
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>{mode === 'edit' && task?.id ? `Zadanie #${task.id}` : 'Nowe zadanie'}</span>
+          {restored && dirty && (
+            <span className="font-medium text-highlight-ink">Przywrócono niezapisany szkic</span>
+          )}
         </div>
-      ) : null}
+      )}
 
       <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder={mode === 'add' ? 'Dodaj zadanie...' : 'Treść zadania...'}
-        onKeyDown={mode === 'add' ? (e) => { if (e.key === 'Enter' && e.ctrlKey) handleSubmit() } : undefined}
-        className="w-full px-2.5 py-2 border border-[var(--app-border)] rounded-md text-[13px] min-h-[56px] resize-y bg-[var(--app-card-alt)] text-[var(--app-text)] font-[inherit] outline-none"
-        autoFocus
+        ref={textRef}
+        value={value.text}
+        onChange={(e) => setValue({ text: e.target.value })}
+        placeholder="Co zostało zrobione?"
+        rows={2}
+        aria-label="Treść zadania"
+        className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed outline-none transition-colors focus:border-ring"
       />
 
-      {/* Time inputs */}
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <label className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--app-text-muted)] mb-1">
-            <Clock size={10} className="text-[var(--app-text-muted)]" />
-            Czas OD
-          </label>
-          <div className="relative flex items-center">
-            <span className="absolute left-2 pointer-events-none flex items-center text-[var(--app-text-muted)]">
-              <Clock size={12} />
-            </span>
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-full py-1.5 pr-2 pl-7 border border-[var(--app-border)] rounded-md text-xs bg-[var(--app-card-alt)] text-[var(--app-text)] font-[inherit] outline-none"
-            />
-          </div>
-        </div>
-        <div className="flex-1">
-          <label className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--app-text-muted)] mb-1">
-            <Clock size={10} className="text-[var(--app-text-muted)]" />
-            Czas DO
-          </label>
-          <div className="relative flex items-center">
-            <span className="absolute left-2 pointer-events-none flex items-center text-[var(--app-text-muted)]">
-              <Clock size={12} />
-            </span>
-            <input
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="w-full py-1.5 pr-2 pl-7 border border-[var(--app-border)] rounded-md text-xs bg-[var(--app-card-alt)] text-[var(--app-text)] font-[inherit] outline-none"
-            />
-          </div>
+      <div className="grid gap-3 sm:grid-cols-[auto_auto_1fr]">
+        <TimeField
+          label="Od"
+          value={value.startTime}
+          onChange={(v) => setValue({ startTime: v })}
+        />
+        <TimeField
+          label="Do"
+          value={value.endTime}
+          onChange={(v) => setValue({ endTime: v })}
+          invalid={timeInvalid}
+        />
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium text-muted-foreground">Status</span>
+          <StatusSelect
+            value={value.status}
+            onChange={(s) => setValue({ status: s })}
+            className="h-9"
+          />
         </div>
       </div>
+      {timeInvalid && (
+        <p className="-mt-1.5 text-xs text-destructive">
+          Godzina „do” musi być późniejsza niż „od”.
+        </p>
+      )}
 
-      {/* Assigner picker */}
-      <AssignerPicker
-        selectedAssigners={assignedBy}
-        onChangeAssigners={setAssignedBy}
-        assigners={assigners}
-      />
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] font-medium text-muted-foreground">Kto zlecił</span>
+        <AssignerPicker
+          selectedAssigners={value.assignedBy}
+          onChangeAssigners={(a) => setValue({ assignedBy: a })}
+          assigners={assigners}
+        />
+      </div>
 
-      {/* Status select */}
-      <select
-        value={status}
-        onChange={(e) => setStatus(e.target.value as TaskStatus)}
-        className="w-full px-1.5 py-[3px] border border-[var(--app-accent)] rounded-[3px] text-[13px] bg-[var(--app-card-alt)] text-[var(--app-text)] font-[inherit] outline-none cursor-pointer"
-      >
-        {statusOptions.map(s => (
-          <option key={s} value={s} className="bg-[var(--app-card-alt)] text-[var(--app-text)]">
-            {s}
-          </option>
-        ))}
-      </select>
-
-      {/* Attachments */}
-      <div className="mt-1.5">
-        <label className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--app-text-muted)] mb-1">
-          <Paperclip size={10} className="text-[var(--app-text-muted)]" />
-          {mode === 'add' ? 'Załączniki (dodane po zapisie)' : 'Załączniki'}
-        </label>
-
-        {mode === 'edit' ? (
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] font-medium text-muted-foreground">Załączniki</span>
+        {mode === 'edit' && task ? (
           <AttachmentGallery
-            attachments={attachments}
-            onChangeAttachments={setAttachments}
-            taskId={props.taskId ?? props.task.id}
-            onOpenLightbox={handleOpenLightbox}
+            attachments={value.attachments}
+            onChangeAttachments={(a) => setValue({ attachments: a })}
+            taskId={task.id}
+            onOpenLightbox={onOpenLightbox ?? (() => {})}
             editable
           />
         ) : (
-          /* Add mode: local pending files list + drop zone */
-          <>
-            {pendingFiles.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-1 text-[11px] text-[var(--app-text-muted)]">
-                {pendingFiles.map((f, i) => (
-                  <span key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-[var(--app-card-alt)] rounded-[4px]">
-                    {f.name}
-                    <button
-                      type="button"
-                      onClick={() => setPendingFiles(pendingFiles.filter((_, j) => j !== i))}
-                      className="bg-none border-none cursor-pointer p-0"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            {pendingFiles.length < 10 && (
-              <div
-                onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.background = 'var(--app-border)' }}
-                onDragLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  e.currentTarget.style.background = 'transparent'
-                  setPendingFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)].slice(0, 10))
-                }}
-                onClick={() => document.getElementById('new-attachment-input')?.click()}
-                className="border border-dashed border-[var(--app-border)] rounded-md p-2 text-center text-[11px] text-[var(--app-text-muted)] cursor-pointer bg-transparent"
+          <div className="flex flex-wrap items-center gap-1.5">
+            {pendingFiles.map((f, i) => (
+              <span
+                key={f.name + i}
+                className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
               >
-                <input
-                  id="new-attachment-input"
-                  type="file"
-                  multiple
-                  accept="image/*,.pdf,.doc,.docx"
-                  className="hidden"
-                  onChange={(e) => {
-                    const files = e.target.files ? Array.from(e.target.files) : []
-                    e.target.value = ''
-                    setPendingFiles(prev => [...prev, ...files].slice(0, 10))
-                  }}
-                />
-                Przeciągnij pliki lub kliknij
-              </div>
+                <FileText className="h-3 w-3" />
+                <span className="max-w-[160px] truncate">{f.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setPendingFiles((p) => p.filter((_, j) => j !== i))}
+                  aria-label={`Usuń ${f.name}`}
+                  className="hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            {pendingFiles.length < 10 && (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setPendingFiles((p) => [...p, ...Array.from(e.dataTransfer.files)].slice(0, 10));
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:border-ring hover:text-foreground"
+              >
+                <Paperclip className="h-3 w-3" />
+                Dodaj pliki
+              </button>
             )}
-          </>
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept="image/*,.pdf,.doc,.docx"
+              className="hidden"
+              onChange={(e) => {
+                const files = e.target.files ? Array.from(e.target.files) : [];
+                e.target.value = '';
+                setPendingFiles((p) => [...p, ...files].slice(0, 10));
+              }}
+            />
+          </div>
         )}
       </div>
 
-      {/* Action buttons */}
-      <div className="flex gap-2 mt-1.5">
+      <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+        <span
+          className={cn(
+            'mr-auto inline-flex items-center gap-1.5 text-[11px] text-muted-foreground transition-opacity',
+            dirty ? 'opacity-100' : 'opacity-0',
+          )}
+          aria-hidden={!dirty}
+        >
+          <CloudCheck className="h-3.5 w-3.5" />
+          Szkic zapisany w przeglądarce
+        </span>
+        <span className="hidden text-[11px] text-muted-foreground lg:inline">
+          <kbd className="font-sans">{isMac ? '⌘' : 'Ctrl'}+↵</kbd> zapisz ·{' '}
+          <kbd className="font-sans">Esc</kbd> zwiń
+        </span>
         <Button
           type="button"
+          variant="ghost"
           size="sm"
-          className="flex-1 h-8 text-xs"
-          onClick={handleSubmit}
-          disabled={uploadingAttachment}
+          onClick={() => {
+            clear();
+            onClose(true);
+          }}
         >
-          <Check size={12} className="mr-1.5" />
-          Zapisz
+          {dirty ? 'Odrzuć' : 'Anuluj'}
         </Button>
         <Button
           type="button"
-          variant="destructive"
           size="sm"
-          className="flex-1 h-8 text-xs"
-          onClick={onCancel}
+          onClick={submit}
+          disabled={busy || !value.text.trim() || timeInvalid}
         >
-          <X size={12} className="mr-1.5" />
-          Anuluj
+          {mode === 'add' ? 'Dodaj zadanie' : 'Zapisz zmiany'}
         </Button>
       </div>
     </div>
-  )
+  );
+}
+
+function TimeField({
+  label,
+  value,
+  onChange,
+  invalid,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  invalid?: boolean;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+      <span className="relative flex items-center">
+        <Clock className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+        <input
+          type="time"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={cn(
+            'tabular h-9 w-[124px] rounded-md border border-input bg-background pl-8 pr-2 text-sm outline-none transition-colors focus:border-ring',
+            invalid && 'border-destructive',
+          )}
+        />
+      </span>
+    </label>
+  );
 }

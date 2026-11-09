@@ -1,150 +1,151 @@
-import React, { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
-import { assetUrl } from '@/lib/apiBase'
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import AssignerAvatar from './AssignerAvatar';
+import type { Assigner } from '@/hooks/useCalendarData';
 
 interface AssignerPickerProps {
-  selectedAssigners: string[]
-  onChangeAssigners: (assigners: string[]) => void
-  assigners: any[]
+  selectedAssigners: string[];
+  onChangeAssigners: (assigners: string[]) => void;
+  assigners: Assigner[];
 }
 
-export default function AssignerPicker({ selectedAssigners, onChangeAssigners, assigners }: AssignerPickerProps) {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showDropdown, setShowDropdown] = useState(false)
-  const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set())
+/** Wybór osób zlecających: lista od razu po fokusie, filtrowanie, ↑/↓/Enter, Backspace usuwa ostatnią. */
+export default function AssignerPicker({
+  selectedAssigners,
+  onChangeAssigners,
+  assigners,
+}: AssignerPickerProps) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      if (!target.closest('[data-assigner-dropdown]')) {
-        setShowDropdown(false)
-      }
+    const onDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  const options = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return assigners.filter(
+      (a) => !selectedAssigners.includes(a.name) && (!q || a.name.toLowerCase().includes(q)),
+    );
+  }, [assigners, query, selectedAssigners]);
+
+  const byName = (name: string) => assigners.find((a) => a.name === name);
+
+  const select = (name: string) => {
+    if (!selectedAssigners.includes(name)) onChangeAssigners([...selectedAssigners, name]);
+    setQuery('');
+    setActiveIdx(0);
+    inputRef.current?.focus();
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setOpen(true);
+      setActiveIdx((i) => Math.min(i + 1, options.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter' && open && options[activeIdx] && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault();
+      select(options[activeIdx].name);
+    } else if (e.key === 'Backspace' && !query && selectedAssigners.length) {
+      onChangeAssigners(selectedAssigners.slice(0, -1));
+    } else if (e.key === 'Escape' && open) {
+      e.stopPropagation();
+      setOpen(false);
     }
-    document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
-  }, [])
-
-  const getFilteredAssigners = (query: string) => {
-    if (!query || query.length < 2) return []
-    const lowerQuery = query.toLowerCase()
-    return assigners.filter(a => a.name.toLowerCase().includes(lowerQuery))
-  }
-
-  const getAssignerByName = (name: string) => assigners.find(a => a.name === name)
-
-  const handleSelect = (name: string) => {
-    if (!selectedAssigners.includes(name)) {
-      onChangeAssigners([...selectedAssigners, name])
-    }
-    setShowDropdown(false)
-    setSearchQuery('')
-  }
-
-  const handleRemove = (idx: number) => {
-    onChangeAssigners(selectedAssigners.filter((_, i) => i !== idx))
-  }
-
-  const filtered = getFilteredAssigners(searchQuery)
+  };
 
   return (
-    <div className="relative" data-assigner-dropdown>
-      {selectedAssigners.length > 0 && (
-        <div className="w-full px-1.5 py-1 border border-[var(--app-accent)] rounded-[3px] text-[13px] bg-[var(--app-card-alt)] text-[var(--app-text)] flex flex-wrap gap-1 mb-1 min-h-[32px]">
-          {selectedAssigners.map((name, idx) => {
-            const assigner = getAssignerByName(name)
-            return (
-              <div
-                key={idx}
-                className="flex items-center gap-1 px-1.5 py-0.5 bg-[var(--app-card)] rounded-full text-[11px]"
-              >
-                {assigner?.avatar && !failedAvatars.has(assigner.avatar) ? (
-                  <img
-                    src={assetUrl(assigner.avatar)}
-                    alt={name}
-                    className="w-4 h-4 rounded-full object-cover"
-                    onError={() => {
-                      if (assigner?.avatar) {
-                        setFailedAvatars(prev => new Set(prev).add(assigner.avatar))
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="w-4 h-4 rounded-full bg-[var(--app-accent)] text-[var(--app-accent-foreground)] flex items-center justify-center text-[9px] font-semibold">
-                    {name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <span>{name}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleRemove(idx)
-                  }}
-                  className="p-0 bg-transparent border-none cursor-pointer flex items-center text-[var(--app-text-muted)] ml-0.5 hover:text-red-500"
-                  title="Usuń"
-                >
-                  <X size={12} color="currentColor" />
-                </button>
-              </div>
-            )
-          })}
-        </div>
-      )}
-      <input
-        type="text"
-        value={searchQuery}
-        onChange={(e) => {
-          const query = e.target.value
-          setSearchQuery(query)
-          setShowDropdown(query.length >= 2)
-        }}
-        placeholder="Wpisz minimum 2 litery aby dodać osobę..."
-        onClick={(e) => {
-          e.stopPropagation()
-          if (searchQuery.length >= 2) setShowDropdown(true)
-        }}
-        className="w-full px-2.5 py-1.5 border border-[var(--app-accent)] rounded-[3px] text-[13px] bg-[var(--app-card-alt)] text-[var(--app-text)] outline-none"
-        autoFocus
-      />
-      {showDropdown && searchQuery.length >= 2 && (
-        <div className="absolute top-full left-0 right-0 bg-[var(--app-card-alt)] border border-[var(--app-border)] rounded-[3px] mt-1 max-h-[200px] overflow-y-auto z-[1000] shadow-[0_4px_6px_rgba(0,0,0,0.3)]">
-          {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-[var(--app-text-muted)] text-xs">
-              Brak wyników
-            </div>
+    <div ref={rootRef} className="relative">
+      <div
+        className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1 transition-colors focus-within:border-ring"
+        onClick={() => inputRef.current?.focus()}
+      >
+        {selectedAssigners.map((name) => (
+          <span
+            key={name}
+            className="inline-flex items-center gap-1.5 rounded-full bg-secondary py-0.5 pl-0.5 pr-1.5 text-xs font-medium"
+          >
+            <AssignerAvatar name={name} avatar={byName(name)?.avatar} size={18} />
+            {name}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChangeAssigners(selectedAssigners.filter((n) => n !== name));
+              }}
+              className="text-muted-foreground hover:text-destructive"
+              aria-label={`Usuń ${name}`}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            setActiveIdx(0);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onKeyDown}
+          placeholder={selectedAssigners.length ? '' : 'Kto zlecił?'}
+          aria-label="Dodaj osobę zlecającą"
+          role="combobox"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          className="h-7 min-w-[90px] flex-1 bg-transparent text-sm outline-none"
+        />
+      </div>
+
+      {open && (
+        <ul
+          role="listbox"
+          className="surface-shadow absolute inset-x-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground"
+        >
+          {options.length === 0 ? (
+            <li className="px-2.5 py-2 text-xs text-muted-foreground">
+              {assigners.length === 0
+                ? 'Dodaj osoby w Ustawieniach → Osoby zlecające'
+                : 'Brak pasujących osób'}
+            </li>
           ) : (
-            filtered
-              .filter(assigner => !selectedAssigners.includes(assigner.name))
-              .map((assigner) => (
-                <div
-                  key={assigner.id}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleSelect(assigner.name)
-                  }}
-                  className="px-3 py-2 cursor-pointer flex items-center gap-2 border-b border-[var(--app-border)] hover:bg-[var(--app-card)]"
-                >
-                  {assigner.avatar && !failedAvatars.has(assigner.avatar) ? (
-                    <img
-                      src={assetUrl(assigner.avatar)}
-                      alt={assigner.name}
-                      className="w-6 h-6 rounded-full object-cover"
-                      onError={() => {
-                        if (assigner.avatar) {
-                          setFailedAvatars(prev => new Set(prev).add(assigner.avatar))
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-[var(--app-accent)] flex items-center justify-center text-[11px] font-semibold text-[var(--app-accent-foreground)]">
-                      {assigner.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <span className="text-[13px] text-[var(--app-text)]">{assigner.name}</span>
-                </div>
-              ))
+            options.map((a, i) => (
+              <li
+                key={a.id}
+                role="option"
+                aria-selected={i === activeIdx}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  select(a.name);
+                }}
+                onMouseEnter={() => setActiveIdx(i)}
+                className={cn(
+                  'flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm',
+                  i === activeIdx && 'bg-accent',
+                )}
+              >
+                <AssignerAvatar name={a.name} avatar={a.avatar} size={22} />
+                <span className="flex-1">{a.name}</span>
+                {i === activeIdx && <Check className="h-3.5 w-3.5 text-muted-foreground" />}
+              </li>
+            ))
           )}
-        </div>
+        </ul>
       )}
     </div>
-  )
+  );
 }

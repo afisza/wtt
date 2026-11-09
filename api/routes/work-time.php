@@ -46,10 +46,13 @@ function handleGet(): void {
             $monthData = getMonthDataJSON($userId, $monthKey, $clientId);
         }
 
-        echo json_encode([$monthKey => $monthData]);
+        echo json_encode([$monthKey => (object)$monthData]);
     } catch (Exception $e) {
+        // Błąd odczytu MUSI być błędem (500), a nie pustym miesiącem — pusta odpowiedź
+        // wyglądała dla frontendu jak „brak zadań” i kolejny zapis mógł je nadpisać.
         error_log('Error loading data: ' . $e->getMessage());
-        echo json_encode((object)[]);
+        http_response_code(500);
+        echo json_encode(['error' => 'Nie udało się wczytać danych']);
     }
 }
 
@@ -80,7 +83,19 @@ function handlePost(): void {
         unset($workTimeData['clientId']);
 
         foreach ($workTimeData as $monthKey => $daysData) {
-            if (isMySQLAvailable()) {
+            if (!preg_match('/^\d{4}-\d{2}$/', (string)$monthKey) || !is_array($daysData)) {
+                continue;
+            }
+            // Przyjmujemy tylko dni należące do danego miesiąca
+            $daysData = array_filter(
+                $daysData,
+                fn($day, $dateKey) => is_array($day) && preg_match('/^' . preg_quote($monthKey, '/') . '-\d{2}$/', (string)$dateKey),
+                ARRAY_FILTER_USE_BOTH
+            );
+            if (empty($daysData)) continue;
+
+            $mysql = isMySQLAvailable();
+            if ($mysql) {
                 try {
                     saveMonthDataMySQL($userId, $monthKey, $daysData, (int)$clientId);
                 } catch (Exception $e) {
@@ -98,8 +113,13 @@ function handlePost(): void {
             try {
                 saveMonthDataJSON($userId, $monthKey, $daysData, (int)$clientId);
             } catch (Exception $e) {
-                error_log('[POST /api/work-time] JSON fallback save failed: ' . $e->getMessage());
-                // Don't fail the request if JSON backup fails – MySQL is the primary store
+                error_log('[POST /api/work-time] JSON save failed: ' . $e->getMessage());
+                // Gdy JSON jest jedynym magazynem, błąd zapisu MUSI dotrzeć do klienta
+                if (!$mysql) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Zapis danych nie powiódł się']);
+                    return;
+                }
             }
         }
 
@@ -246,14 +266,15 @@ function saveMonthDataMySQL(int $userId, string $monthKey, array $daysData, int 
                 $workDayId = (int)$pdo->lastInsertId();
             }
 
-            // ── Diff/upsert: compare payload vs DB ──────────────────────
-
-            // 0. Clean up zombie tasks (empty/NULL task_uid) – they can't be tracked by upsert
-            try {
-                $pdo->prepare("DELETE FROM tasks WHERE work_day_id = ? AND (task_uid IS NULL OR task_uid = '')")->execute([$workDayId]);
-            } catch (PDOException $e) {
-                // ignore – column may not exist yet
-            }
+            // ── Upsert + jawne usuwanie ──────────────────────────────────
+            // Zadania usuwamy WYŁĄCZNIE gdy klient wskaże je w `deletedIds`.
+            // Wcześniej kasowane było wszystko, czego nie było w payloadzie — przy
+            // nieaktualnym stanie w przeglądarce (druga karta, nieudany odczyt)
+            // prowadziło to do utraty zadań.
+            $deletedIds = array_values(array_filter(
+                array_map('strval', is_array($dayData['deletedIds'] ?? null) ? $dayData['deletedIds'] : []),
+                fn($id) => $id !== ''
+            ));
 
             // 1. Fetch existing tasks keyed by task_uid
             $existingByUid = [];
@@ -271,24 +292,27 @@ function saveMonthDataMySQL(int $userId, string $monthKey, array $daysData, int 
             }
 
             // 2. Walk payload: UPDATE existing, INSERT new
-            $payloadUids = [];
-            $tasks = $dayData['tasks'] ?? [];
+            $tasks = is_array($dayData['tasks'] ?? null) ? $dayData['tasks'] : [];
             foreach ($tasks as $task) {
                 $normalized = normalizeSingleTask($task);
                 if (empty(trim($normalized['text']))) continue;
 
-                $taskUid = $normalized['id'] ?? '';
+                $taskUid = (string)($normalized['id'] ?? '');
+                if ($taskUid === '' || in_array($taskUid, $deletedIds, true)) {
+                    if ($taskUid === '') {
+                        $known = array_fill_keys(array_keys($existingByUid), true);
+                        $taskUid = generateTaskId($known);
+                    } else {
+                        continue;
+                    }
+                }
                 $assignedByJson = (!empty($normalized['assignedBy']) && is_array($normalized['assignedBy']))
                     ? json_encode($normalized['assignedBy']) : '';
                 $attachmentsJson = json_encode(is_array($normalized['attachments'] ?? null) ? $normalized['attachments'] : []);
                 $taskStatus = $normalized['status'] ?: 'do zrobienia';
                 $completed = ($taskStatus === 'wykonano') ? 1 : 0;
 
-                if ($taskUid !== '') {
-                    $payloadUids[] = $taskUid;
-                }
-
-                if ($taskUid !== '' && isset($existingByUid[$taskUid])) {
+                if (isset($existingByUid[$taskUid])) {
                     // UPDATE existing task
                     $stmt = $pdo->prepare(
                         'UPDATE tasks SET description = ?, assigned_by = ?, start_time = ?, end_time = ?, status = ?, completed = ?, attachments = ? WHERE id = ?'
@@ -319,11 +343,12 @@ function saveMonthDataMySQL(int $userId, string $monthKey, array $daysData, int 
                         $completed,
                         $attachmentsJson,
                     ]);
+                    $existingByUid[$taskUid] = (int)$pdo->lastInsertId();
                 }
             }
 
-            // 3. DELETE tasks that are in DB but no longer in the payload
-            $toDelete = array_diff_key($existingByUid, array_flip($payloadUids));
+            // 3. DELETE only tasks explicitly removed by the client
+            $toDelete = array_intersect_key($existingByUid, array_flip($deletedIds));
             if (!empty($toDelete)) {
                 $ids = array_values($toDelete);
                 $placeholders = implode(',', array_fill(0, count($ids), '?'));

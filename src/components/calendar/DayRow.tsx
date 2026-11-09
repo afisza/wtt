@@ -1,222 +1,128 @@
-import React, { useMemo } from 'react'
-import { format, getDay } from 'date-fns'
-import TaskList from '@/components/TaskList'
-import { assetUrl } from '@/lib/apiBase'
-import { cn } from '@/lib/utils'
-import type { Task, TaskStatus } from '@/components/tasks/types'
-import type { DayData } from '@/hooks/useCalendarData'
-
-interface DragHandlers {
-  onDragStart: (e: React.DragEvent, date: string, taskIndex: number) => void
-  onDragEnd: (e: React.DragEvent) => void
-  onDragOver: (e: React.DragEvent) => void
-  onDragLeave: (e: React.DragEvent) => void
-  onDrop: (e: React.DragEvent, date: string) => void
-}
+import React, { useState } from 'react';
+import { Plus } from 'lucide-react';
+import { format, getDay } from 'date-fns';
+import TaskList from '@/components/TaskList';
+import { useTaskDrop } from '@/hooks/useTaskDrop';
+import { DAY_NAMES, DAY_NAMES_SHORT } from '@/lib/tasks';
+import { cn } from '@/lib/utils';
+import type { Assigner, DayData, TasksUpdater } from '@/hooks/useCalendarData';
 
 interface DayRowProps {
-  day: Date
-  dayData: DayData
-  dayIndex: number
-  isHighlighted: boolean
-  assigners: any[]
-  failedAvatars: Set<string>
-  onFailedAvatar: (url: string) => void
-  onUpdateTasks: (tasks: Task[]) => void
-  dragHandlers: DragHandlers
+  day: Date;
+  dayData: DayData;
+  isToday: boolean;
+  isHighlighted: boolean;
+  assigners: Assigner[];
+  onUpdateTasks: (dateKey: string, updater: TasksUpdater) => void;
+  onMoveTask: (from: string, to: string, taskId: string) => void;
 }
 
-const getDayName = (date: Date): string => {
-  const dayNames = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota']
-  return dayNames[getDay(date)]
-}
-
-const statusColorClass = (status: TaskStatus): string => {
-  switch (status) {
-    case 'wykonano': return 'bg-emerald-500 text-white'
-    case 'w trakcie': return 'bg-blue-500 text-white'
-    case 'do zrobienia': return 'bg-yellow-500 text-white'
-    case 'anulowane': return 'bg-gray-500 text-white'
-    case 'zaplanowano': return 'bg-violet-500 text-white'
-    default: return 'bg-muted text-muted-foreground'
-  }
-}
-
+/**
+ * Jeden dzień rejestru — ten sam komponent na desktopie (wiersz: data | zadania | godziny)
+ * i na telefonie (nagłówek dnia nad listą zadań).
+ */
 function DayRow({
   day,
   dayData,
-  dayIndex,
+  isToday,
   isHighlighted,
   assigners,
-  failedAvatars,
-  onFailedAvatar,
   onUpdateTasks,
-  dragHandlers,
+  onMoveTask,
 }: DayRowProps) {
-  const dateKey = format(day, 'yyyy-MM-dd')
-  const { onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop } = dragHandlers
-
-  const dayAssigners = useMemo(() => Array.from(
-    new Set(
-      dayData.tasks
-        .flatMap(t => Array.isArray(t.assignedBy) ? t.assignedBy : (t.assignedBy ? [t.assignedBy] : []))
-        .filter(Boolean)
-    )
-  ), [dayData.tasks])
-
-  const getAssignerByName = (name: string) => assigners.find(a => a.name === name)
+  const dateKey = format(day, 'yyyy-MM-dd');
+  const weekday = getDay(day);
+  const isWeekend = weekday === 0 || weekday === 6;
+  const hasTasks = dayData.tasks.length > 0;
+  const [addSignal, setAddSignal] = useState(0);
+  const drop = useTaskDrop(({ from, taskId }) => {
+    if (from !== dateKey) onMoveTask(from, dateKey, taskId);
+  });
 
   return (
-    <tr
-      key={dateKey}
+    <section
       data-day={dateKey}
+      aria-label={`${format(day, 'dd.MM.yyyy')}, ${DAY_NAMES[weekday]}`}
+      {...drop.handlers}
       className={cn(
-        'transition-colors',
-        isHighlighted
-          ? 'bg-primary/10 border-l-[3px] border-l-primary'
-          : dayIndex % 2 === 0 ? 'bg-background' : 'bg-card',
-        'hover:bg-muted/50'
+        'group/day grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 border-b px-3 py-3 transition-colors last:border-b-0 md:grid-cols-[88px_1fr_76px] md:px-4',
+        isWeekend && 'bg-weekend/60',
+        isHighlighted && 'search-highlight',
+        drop.isOver && 'drag-over-highlight',
       )}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={(e) => onDrop(e, dateKey)}
     >
-      {/* Date */}
-      <td
-        className="px-2 py-1 border-b align-top"
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={(e) => onDrop(e, dateKey)}
-      >
-        <div className={cn(
-          'text-sm leading-tight',
-          isHighlighted ? 'font-semibold text-primary' : 'font-medium text-foreground'
-        )}>
-          {format(day, 'dd.MM.yyyy')}
-        </div>
-        <div className="text-xs text-muted-foreground lowercase leading-tight">
-          {getDayName(day)}
-        </div>
-      </td>
+      {/* Data */}
+      <div className="flex items-baseline gap-2 md:flex-col md:gap-0.5">
+        <span
+          className={cn(
+            'tabular font-display text-xl font-semibold leading-none',
+            isToday
+              ? 'inline-grid h-8 min-w-8 place-items-center rounded-md bg-highlight px-1.5 text-highlight-foreground'
+              : hasTasks
+                ? 'text-foreground'
+                : 'text-muted-foreground',
+          )}
+        >
+          {format(day, 'd')}
+        </span>
+        <span
+          className={cn(
+            'text-xs',
+            isWeekend ? 'text-status-cancelled/80' : 'text-muted-foreground',
+          )}
+        >
+          <span className="md:hidden">{DAY_NAMES_SHORT[weekday]}</span>
+          <span className="hidden md:inline">{DAY_NAMES[weekday]}</span>
+          {isToday && <span className="ml-1.5 font-semibold text-highlight-ink">· dziś</span>}
+        </span>
+        <button
+          type="button"
+          onClick={() => setAddSignal((n) => n + 1)}
+          aria-label={`Dodaj zadanie ${format(day, 'dd.MM')}`}
+          title="Dodaj zadanie"
+          className={cn(
+            'mt-1.5 hidden h-6 w-fit items-center gap-1 rounded-md px-1.5 text-[11px] font-medium text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 md:inline-flex',
+            !isToday && 'opacity-0 group-hover/day:opacity-100',
+          )}
+        >
+          <Plus className="h-3 w-3" />
+          Dodaj
+        </button>
+      </div>
 
-      {/* Hours */}
-      <td
-        className="px-2 py-1 border-b text-center text-sm font-semibold text-primary align-top"
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={(e) => onDrop(e, dateKey)}
+      {/* Godziny — na telefonie w prawym górnym rogu */}
+      <div
+        className={cn(
+          'tabular row-start-1 text-right font-display text-base font-semibold md:col-start-3',
+          hasTasks ? 'text-foreground' : 'text-muted-foreground/40',
+        )}
       >
         {dayData.totalHours}
-      </td>
+      </div>
 
-      {/* Assigners */}
-      <td
-        className="px-2 py-1 border-b align-top"
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={(e) => onDrop(e, dateKey)}
-      >
-        {dayAssigners.length > 0 ? (
-          <div className="flex flex-col gap-1">
-            {dayAssigners.map((assignerName, idx) => {
-              const assigner = getAssignerByName(assignerName)
-              return (
-                <div key={idx} className="flex items-center gap-1.5 text-xs text-foreground">
-                  {assigner?.avatar && !failedAvatars.has(assigner.avatar) ? (
-                    <img
-                      src={assetUrl(assigner.avatar)}
-                      alt={assigner.name}
-                      className="w-5 h-5 rounded-full object-cover shrink-0"
-                      onError={() => {
-                        if (assigner?.avatar) {
-                          onFailedAvatar(assigner.avatar)
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-[9px] font-bold text-primary-foreground shrink-0">
-                      {assignerName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <span>{assignerName}</span>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <span className="text-sm text-muted-foreground">-</span>
-        )}
-      </td>
-
-      {/* Tasks */}
-      <td
-        className="px-2 py-1 border-b align-top"
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={(e) => onDrop(e, dateKey)}
-      >
+      {/* Zadania */}
+      <div className="col-span-2 min-w-0 md:col-span-1 md:col-start-2 md:row-start-1">
         <TaskList
           date={dateKey}
           tasks={dayData.tasks}
-          onUpdate={async (tasks) => { onUpdateTasks(tasks) }}
-          onDragStart={(e, taskIndex) => onDragStart(e, dateKey, taskIndex)}
-          onDragEnd={onDragEnd}
+          assigners={assigners}
+          emphasizeAdd={isToday}
+          addSignal={addSignal}
+          addButtonMobileOnly
+          onUpdate={(updater) => onUpdateTasks(dateKey, updater)}
         />
-      </td>
-
-      {/* Status */}
-      <td
-        className="px-2 py-1 border-b align-top"
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={(e) => onDrop(e, dateKey)}
-      >
-        {dayData.tasks.length > 0 ? (
-          <div className="flex flex-col gap-0.5">
-            {dayData.tasks.map((task, idx) => (
-              <div
-                key={idx}
-                draggable
-                onDragStart={(e) => onDragStart(e, dateKey, idx)}
-                onDragEnd={onDragEnd}
-                className="flex items-center gap-1 cursor-grab min-h-[22px]"
-              >
-                <div className="min-w-[18px] h-[18px] flex items-center justify-center bg-primary text-primary-foreground rounded-sm text-[10px] font-bold shrink-0">
-                  {idx + 1}
-                </div>
-                <select
-                  value={task.status}
-                  onChange={(e) => {
-                    const updatedTasks = [...dayData.tasks]
-                    updatedTasks[idx] = { ...updatedTasks[idx], status: e.target.value as Task['status'] }
-                    onUpdateTasks(updatedTasks)
-                  }}
-                  aria-label={`Status zadania ${idx + 1}`}
-                  className={cn(
-                    'flex-1 h-[26px] px-1.5 rounded-sm border-0 text-[11px] font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    statusColorClass(task.status)
-                  )}
-                >
-                  <option value="wykonano">wykonano</option>
-                  <option value="w trakcie">w trakcie</option>
-                  <option value="do zrobienia">do zrobienia</option>
-                  <option value="anulowane">anulowane</option>
-                  <option value="zaplanowano">zaplanowano</option>
-                </select>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <span className="text-sm text-muted-foreground">-</span>
-        )}
-      </td>
-    </tr>
-  )
+      </div>
+    </section>
+  );
 }
 
-export default React.memo(DayRow, (prev, next) =>
-  prev.dayData === next.dayData &&
-  prev.isHighlighted === next.isHighlighted &&
-  prev.dayIndex === next.dayIndex &&
-  prev.failedAvatars === next.failedAvatars
-)
+export default React.memo(
+  DayRow,
+  (a, b) =>
+    a.dayData === b.dayData &&
+    a.isToday === b.isToday &&
+    a.isHighlighted === b.isHighlighted &&
+    a.assigners === b.assigners &&
+    a.onUpdateTasks === b.onUpdateTasks &&
+    a.onMoveTask === b.onMoveTask,
+);

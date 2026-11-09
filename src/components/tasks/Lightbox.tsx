@@ -19,6 +19,7 @@ export default function Lightbox({ lightbox, setLightbox }: LightboxProps) {
   useEffect(() => {
     if (!lightbox) return
     const handleArrow = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault()
       if (e.key === 'ArrowLeft') {
         setLightbox(prev => prev ? { ...prev, index: Math.max(0, prev.index - 1) } : null)
       } else if (e.key === 'ArrowRight') {

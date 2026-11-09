@@ -73,14 +73,10 @@ function tryRefreshAccess(): bool {
         $decoded = JWT::decode($refresh, new Key(JWT_SECRET, 'HS256'));
         if (($decoded->type ?? '') !== 'refresh') return false;
         $newAccess = createToken((int)$decoded->userId, $decoded->email);
-        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-        setcookie('auth_token', $newAccess, [
-            'expires'  => time() + JWT_ACCESS_TTL,
-            'path'     => '/',
-            'httponly'  => true,
-            'secure'   => $secure,
-            'samesite' => 'Strict',
-        ]);
+        // Sesja przesuwna: przy każdym odświeżeniu wydajemy też nowy refresh token,
+        // więc aktywny użytkownik nie zostaje wylogowany po 7 dniach od logowania.
+        $newRefresh = createRefreshToken((int)$decoded->userId, $decoded->email);
+        setAuthCookies($newAccess, $newRefresh);
         // Make the new token available to current request
         $_COOKIE['auth_token'] = $newAccess;
         return true;

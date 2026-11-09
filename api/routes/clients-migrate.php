@@ -20,6 +20,18 @@ try {
         // ── Migracja MySQL ───────────────────────────────────────────────────
         $pdo = getDb();
 
+        // 0. Nic do migracji → nie twórz klienta (wcześniej „Best Market” powstawał przy każdym
+        //    wywołaniu, a równoległe wywołania tworzyły duplikaty i wskrzeszały usuniętego klienta)
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM work_days WHERE user_id = ? AND client_id IS NULL');
+        $stmt->execute([$userId]);
+        if ((int)$stmt->fetchColumn() === 0) {
+            jsonResponse([
+                'success'     => true,
+                'message'     => 'Brak danych do migracji',
+                'updatedRows' => 0,
+            ]);
+        }
+
         // 1. Sprawdź czy klient "Best Market" już istnieje
         $stmt = $pdo->prepare("SELECT id FROM clients WHERE user_id = ? AND name = 'Best Market'");
         $stmt->execute([$userId]);

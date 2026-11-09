@@ -39,6 +39,8 @@ data/work-time.json
 data/assigners.json
 data/clients.json
 data/Untitled
+data/.jwt-secret
+data/rate-limits/
 
 # uploaded avatars (user content – regenerate on deploy)
 public/avatars/*

@@ -1,285 +1,354 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
-import { format, getDay } from 'date-fns'
-import { Loader2 } from 'lucide-react'
-import { useCalendarData } from '@/hooks/useCalendarData'
-import CalendarHeader from '@/components/calendar/CalendarHeader'
-import DayRow from '@/components/calendar/DayRow'
-import DayCard from '@/components/calendar/DayCard'
-import PdfExportButton from '@/components/calendar/PdfExportButton'
-import ProgressBar from '@/components/ProgressBar'
-import { cn } from '@/lib/utils'
-import type { Task } from '@/components/tasks/types'
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { format, getDay, isSameMonth } from 'date-fns';
+import { AlertTriangle, Eye, EyeOff, RotateCw } from 'lucide-react';
+import { useCalendarData, type TasksUpdater } from '@/hooks/useCalendarData';
+import { DraftScopeContext } from '@/lib/drafts';
+import { calculateTotalHours, DAY_NAMES } from '@/lib/tasks';
+import { storage } from '@/lib/storage';
+import { useToast } from '@/contexts/ToastContext';
+import CalendarHeader from '@/components/calendar/CalendarHeader';
+import DayRow from '@/components/calendar/DayRow';
+import PdfExportButton from '@/components/calendar/PdfExportButton';
+import ProgressBar from '@/components/ProgressBar';
+import ViewSwitcher, { VIEWS, type CalendarView } from '@/components/views/ViewSwitcher';
+import WeekView from '@/components/views/WeekView';
+import MonthGridView from '@/components/views/MonthGridView';
+import KanbanView from '@/components/views/KanbanView';
+import DayPanel from '@/components/views/DayPanel';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import type { TaskStatus } from '@/components/tasks/types';
 
 interface CalendarTableProps {
-  clientId: number | null
-  clientName?: string
-  clientLogo?: string
-  highlightDate?: string | null
+  clientId: number | null;
+  clientName?: string;
+  clientLogo?: string;
+  highlightDate?: string | null;
 }
 
-export default function CalendarTable({ clientId, clientName, clientLogo, highlightDate }: CalendarTableProps) {
+const HIDE_EMPTY_KEY = 'wttHideEmptyDays';
+const VIEW_KEY = 'wttCalendarView';
+
+export default function CalendarTable({
+  clientId,
+  clientName,
+  clientLogo,
+  highlightDate,
+}: CalendarTableProps) {
   const {
     daysData,
+    days,
     loading,
+    loadError,
     currentMonth,
+    monthDisplayName,
+    monthTotal,
+    totalAmount,
     assigners,
-    failedAvatars,
-    setFailedAvatars,
+    reload,
     updateDayData,
     moveTask,
-    calculateMonthTotal,
-    calculateTotalAmount,
-    calculateTotalHours,
     changeMonth,
-    getDaysInMonth,
-    getMonthDisplayName,
-  } = useCalendarData(clientId)
+    goToToday,
+    goToMonth,
+  } = useCalendarData(clientId);
+  const [view, setView] = useState<CalendarView>(() => {
+    const v = storage.get(VIEW_KEY) as CalendarView | null;
+    return v && VIEWS.some((x) => x.id === v) ? v : 'list';
+  });
+  const [panelDate, setPanelDate] = useState<string | null>(null);
 
-  const [draggedTask, setDraggedTask] = useState<{ task: Task; sourceDate: string; taskIndex: number } | null>(null)
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null)
-  const tableRef = useRef<HTMLDivElement>(null)
+  const changeView = useCallback((v: CalendarView) => {
+    setView(v);
+    storage.set(VIEW_KEY, v);
+  }, []);
 
-  const handleChangeMonth = useCallback((direction: number) => {
-    setSlideDirection(direction > 0 ? 'left' : 'right')
-    changeMonth(direction)
-    setTimeout(() => setSlideDirection(null), 300)
-  }, [changeMonth])
+  // Skróty 1–4 przełączają widok (poza polami formularzy)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        !t?.closest ||
+        t.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')
+      )
+        return;
+      const match = VIEWS.find((v) => v.key === e.key);
+      if (match) changeView(match.id);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [changeView]);
+  const { showToast } = useToast();
+  const [hideEmpty, setHideEmpty] = useState(() => storage.get(HIDE_EMPTY_KEY) === '1');
+  const [slide, setSlide] = useState<'left' | 'right' | null>(null);
 
-  const handleDragStart = useCallback((e: React.DragEvent, date: string, taskIndex: number) => {
-    const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : format(new Date(date), 'yyyy-MM-dd')
-    const dayData = daysData[dateKey]
-    if (dayData && dayData.tasks[taskIndex]) {
-      setDraggedTask({
-        task: dayData.tasks[taskIndex],
-        sourceDate: dateKey,
-        taskIndex,
-      })
-      e.dataTransfer.effectAllowed = 'move'
-      e.dataTransfer.setData('text/plain', '')
-      if (e.currentTarget instanceof HTMLElement) {
-        e.currentTarget.classList.add('dragging-task')
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const draftScope = useMemo(() => ({ clientId }), [clientId]);
+
+  const handleChangeMonth = useCallback(
+    (dir: number) => {
+      setSlide(dir > 0 ? 'left' : 'right');
+      changeMonth(dir);
+      window.setTimeout(() => setSlide(null), 320);
+    },
+    [changeMonth],
+  );
+
+  const onUpdateTasks = useCallback(
+    (dateKey: string, updater: TasksUpdater) => updateDayData(dateKey, updater),
+    [updateDayData],
+  );
+
+  const onMoveTask = useCallback(
+    (from: string, to: string, taskId: string) => {
+      if (moveTask(from, to, taskId)) {
+        showToast(`Przeniesiono na ${to.split('-').reverse().join('.')}`, 'success');
       }
-    }
-  }, [daysData])
+    },
+    [moveTask, showToast],
+  );
 
-  const handleDragEnd = useCallback((e: React.DragEvent) => {
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.classList.remove('dragging-task')
-    }
-    // Clean up any lingering highlights
-    document.querySelectorAll('.drag-over-highlight').forEach(el => {
-      el.classList.remove('drag-over-highlight')
-    })
-    setDraggedTask(null)
-  }, [])
+  const counts = useMemo(() => {
+    const c: Record<TaskStatus, number> = {
+      wykonano: 0,
+      'w trakcie': 0,
+      'do zrobienia': 0,
+      anulowane: 0,
+      zaplanowano: 0,
+    };
+    for (const d of Object.values(daysData))
+      for (const t of d.tasks) c[t.status] = (c[t.status] || 0) + 1;
+    return c;
+  }, [daysData]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    if (draggedTask && e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.classList.add('drag-over-highlight')
-    }
-  }, [draggedTask])
+  const workDays = useMemo(
+    () => Object.values(daysData).filter((d) => d.tasks.length > 0).length,
+    [daysData],
+  );
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.classList.remove('drag-over-highlight')
-    }
-  }, [])
+  const visibleDays = useMemo(
+    () =>
+      hideEmpty
+        ? days.filter((d) => {
+            const k = format(d, 'yyyy-MM-dd');
+            return (daysData[k]?.tasks.length ?? 0) > 0 || k === todayKey || k === highlightDate;
+          })
+        : days,
+    [days, daysData, hideEmpty, todayKey, highlightDate],
+  );
 
-  const handleDrop = useCallback((e: React.DragEvent, targetDate: string) => {
-    e.preventDefault()
+  const toggleHideEmpty = () => {
+    setHideEmpty((v) => {
+      storage.set(HIDE_EMPTY_KEY, v ? '0' : '1');
+      return !v;
+    });
+  };
 
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.classList.remove('drag-over-highlight')
-    }
+  const header = (
+    <CalendarHeader
+      monthDisplayName={monthDisplayName}
+      isCurrentMonth={isSameMonth(currentMonth, new Date())}
+      onPrevMonth={() => handleChangeMonth(-1)}
+      onNextMonth={() => handleChangeMonth(1)}
+      onToday={goToToday}
+    >
+      <dl className="flex items-end gap-6">
+        <div>
+          <dt className="text-xs text-muted-foreground">Dni pracy</dt>
+          <dd className="tabular font-display text-xl font-semibold">{workDays}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Suma godzin</dt>
+          <dd className="tabular font-display text-xl font-semibold">{monthTotal}</dd>
+        </div>
+        {totalAmount && (
+          <div>
+            <dt className="text-xs text-muted-foreground">Kwota</dt>
+            <dd className="tabular font-display text-xl font-semibold text-highlight-ink">
+              {Number(totalAmount).toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
+            </dd>
+          </div>
+        )}
+      </dl>
+    </CalendarHeader>
+  );
 
-    if (!draggedTask) return
-
-    const targetDateKey = /^\d{4}-\d{2}-\d{2}$/.test(targetDate) ? targetDate : format(new Date(targetDate), 'yyyy-MM-dd')
-
-    if (draggedTask.sourceDate === targetDateKey) {
-      setDraggedTask(null)
-      return
-    }
-
-    moveTask(draggedTask.sourceDate, targetDateKey, draggedTask.taskIndex)
-    setDraggedTask(null)
-  }, [draggedTask, moveTask])
-
-  const getDayName = (date: Date): string => {
-    const dayNames = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota']
-    return dayNames[getDay(date)]
+  if (loading && Object.keys(daysData).length === 0) {
+    return (
+      <div className="flex flex-col gap-5">
+        {header}
+        <div className="overflow-hidden rounded-lg border bg-card">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-6 border-b px-4 py-4 last:border-b-0">
+              <Skeleton className="h-6 w-10" />
+              <Skeleton className="h-4 flex-1" />
+              <Skeleton className="h-5 w-12" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  const days = useMemo(() => getDaysInMonth(), [currentMonth])
-  const monthTotal = useMemo(() => calculateMonthTotal(), [daysData])
-  const totalAmount = useMemo(() => calculateTotalAmount(), [daysData])
-
-  // Progress calculations (memoized)
-  const { totalTasks, doneTasks, inProgressTasks, completionPercent, activePercent } = useMemo(() => {
-    const allTasks = Object.values(daysData).flatMap(d => d.tasks)
-    const total = allTasks.length
-    const done = allTasks.filter(t => t.status === 'wykonano').length
-    const inProgress = allTasks.filter(t => t.status === 'w trakcie').length
-    return {
-      totalTasks: total,
-      doneTasks: done,
-      inProgressTasks: inProgress,
-      completionPercent: total > 0 ? (done / total) * 100 : 0,
-      activePercent: total > 0 ? ((done + inProgress) / total) * 100 : 0,
-    }
-  }, [daysData])
-
-  const dragHandlers = useMemo(() => ({
-    onDragStart: handleDragStart,
-    onDragEnd: handleDragEnd,
-    onDragOver: handleDragOver,
-    onDragLeave: handleDragLeave,
-    onDrop: handleDrop,
-  }), [handleDragStart, handleDragEnd, handleDragOver, handleDragLeave, handleDrop])
-
-  if (loading) {
+  if (loadError) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 min-h-[400px]">
-        <Loader2 className="h-10 w-10 text-primary animate-spin" />
-        <p className="mt-4 text-sm text-muted-foreground font-medium">
-          Ładowanie zadań z bazy danych...
-        </p>
+      <div className="flex flex-col gap-5">
+        {header}
+        <div
+          role="alert"
+          className="flex flex-col items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-5"
+        >
+          <p className="flex items-center gap-2 font-medium">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            Nie udało się wczytać zadań
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {loadError} Edycja jest wstrzymana, aby nie nadpisać danych — Twoje niezapisane zmiany
+            są bezpieczne w tej przeglądarce.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => reload()}>
+            <RotateCw className="h-3.5 w-3.5" />
+            Spróbuj ponownie
+          </Button>
+        </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="space-y-2" data-tour="calendar">
-      <CalendarHeader
-        monthDisplayName={getMonthDisplayName()}
-        onPrevMonth={() => handleChangeMonth(-1)}
-        onNextMonth={() => handleChangeMonth(1)}
-      />
+    <DraftScopeContext.Provider value={draftScope}>
+      <div className="flex flex-col gap-5" data-tour="calendar">
+        {header}
 
-      {/* Progress bars */}
-      {totalTasks > 0 && (
-        <div className="rounded-lg border bg-card p-3 space-y-1.5">
-          <ProgressBar value={completionPercent} label="Ukończone" size="sm" />
-          <ProgressBar value={activePercent} label="Aktywne" size="sm" />
-          <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5">
-            <span>{doneTasks} z {totalTasks} zadań ukończonych</span>
-            <span>{inProgressTasks} w trakcie</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ViewSwitcher value={view} onChange={changeView} />
+          <ProgressBar
+            counts={counts}
+            className="order-last min-w-[240px] basis-full lg:order-none lg:flex-1 lg:basis-auto"
+          />
+          <div className="flex items-center gap-2" data-tour="pdf-export">
+            {view === 'list' && (
+              <Button variant="ghost" size="sm" onClick={toggleHideEmpty} aria-pressed={hideEmpty}>
+                {hideEmpty ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">
+                  {hideEmpty ? 'Pokaż wszystkie dni' : 'Ukryj puste dni'}
+                </span>
+              </Button>
+            )}
+            <PdfExportButton
+              currentMonth={currentMonth}
+              daysData={daysData}
+              clientName={clientName}
+              clientLogo={clientLogo}
+              monthTotal={monthTotal}
+              totalAmount={totalAmount}
+              getDayName={(d: Date) => DAY_NAMES[getDay(d)]}
+              calculateTotalHours={calculateTotalHours}
+              getDaysInMonth={() => days}
+            />
           </div>
         </div>
-      )}
 
-      {/* Desktop table view */}
-      <div
-        ref={tableRef}
-        className={cn(
-          'hidden md:block overflow-x-auto rounded-lg border bg-card transition-all duration-300 ease-out',
-          slideDirection === 'left' && 'animate-[slideInLeft_0.3s_ease-out]',
-          slideDirection === 'right' && 'animate-[slideCalRight_0.3s_ease-out]',
+        {view === 'week' && (
+          <WeekView
+            currentMonth={currentMonth}
+            daysData={daysData}
+            assigners={assigners}
+            todayKey={todayKey}
+            highlightDate={highlightDate}
+            onUpdateTasks={onUpdateTasks}
+            onMoveTask={onMoveTask}
+            onGoToMonth={goToMonth}
+          />
         )}
-      >
-        <table className="w-full border-collapse" role="table" aria-label="Kalendarz zadań">
-          <thead>
-            <tr>
-              <th className="w-[90px] text-sm px-2 py-2 bg-primary text-primary-foreground font-semibold text-left">Dzień</th>
-              <th className="w-[70px] text-sm px-2 py-2 bg-primary text-primary-foreground font-semibold text-center">Godziny</th>
-              <th className="w-[120px] text-sm px-2 py-2 bg-primary text-primary-foreground font-semibold text-left">Kto zlecił</th>
-              <th className="min-w-[300px] text-sm px-2 py-2 bg-primary text-primary-foreground font-semibold text-left">Zadania</th>
-              <th className="w-[120px] text-sm px-2 py-2 bg-primary text-primary-foreground font-semibold text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {days.map((day, dayIndex) => {
-              const dateKey = format(day, 'yyyy-MM-dd')
-              const dayData = daysData[dateKey] || {
-                date: dateKey,
-                tasks: [],
-                totalHours: '00:00',
-              }
-              const isHighlighted = highlightDate === dateKey
-
-              return (
-                <DayRow
-                  key={dateKey}
-                  day={day}
-                  dayData={dayData}
-                  dayIndex={dayIndex}
-                  isHighlighted={isHighlighted}
-                  assigners={assigners}
-                  failedAvatars={failedAvatars}
-                  onFailedAvatar={(url) => setFailedAvatars(prev => new Set(prev).add(url))}
-                  onUpdateTasks={(tasks) => updateDayData(dateKey, { tasks })}
-                  dragHandlers={dragHandlers}
-                />
-              )
-            })}
-
-            {/* Total row */}
-            <tr className="bg-primary text-primary-foreground font-semibold">
-              <td className="text-right px-2 py-2 text-sm">RAZEM:</td>
-              <td className="text-center px-2 py-2 text-sm">{monthTotal}</td>
-              <td colSpan={3} className="text-right px-2 py-2 text-sm">
-                {totalAmount && (
-                  <span className="font-semibold">{totalAmount} zł</span>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile card view */}
-      <div
-        className={cn(
-          'md:hidden flex flex-col gap-2 transition-all duration-300 ease-out',
-          slideDirection === 'left' && 'animate-[slideInLeft_0.3s_ease-out]',
-          slideDirection === 'right' && 'animate-[slideCalRight_0.3s_ease-out]',
+        {view === 'month' && (
+          <MonthGridView
+            days={days}
+            daysData={daysData}
+            todayKey={todayKey}
+            highlightDate={highlightDate}
+            onOpenDay={setPanelDate}
+            onMoveTask={onMoveTask}
+          />
         )}
-      >
-        {days.map((day) => {
-          const dateKey = format(day, 'yyyy-MM-dd')
-          const dayData = daysData[dateKey] || {
-            date: dateKey,
-            tasks: [],
-            totalHours: '00:00',
-          }
-          const isHighlighted = highlightDate === dateKey
+        {view === 'kanban' && (
+          <KanbanView
+            daysData={daysData}
+            assigners={assigners}
+            onUpdateTasks={onUpdateTasks}
+            onOpenDay={setPanelDate}
+          />
+        )}
 
-          return (
-            <DayCard
-              key={dateKey}
-              day={day}
-              dayData={dayData}
-              isHighlighted={isHighlighted}
-              assigners={assigners}
-              failedAvatars={failedAvatars}
-              onFailedAvatar={(url) => setFailedAvatars(prev => new Set(prev).add(url))}
-              onUpdateTasks={(tasks) => updateDayData(dateKey, { tasks })}
-            />
-          )
-        })}
+        {view === 'list' && (
+          <div
+            className={cn(
+              'overflow-hidden rounded-lg border bg-card',
+              slide === 'left' && 'animate-[slideInLeft_0.3s_cubic-bezier(0.22,1,0.36,1)]',
+              slide === 'right' && 'animate-[slideCalRight_0.3s_cubic-bezier(0.22,1,0.36,1)]',
+            )}
+          >
+            <div className="hidden grid-cols-[88px_1fr_76px] gap-x-4 border-b bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid">
+              <span>Dzień</span>
+              <span>Zadania</span>
+              <span className="text-right">Godziny</span>
+            </div>
 
-        {/* Mobile total */}
-        <div className="rounded-lg bg-primary text-primary-foreground p-3 flex items-center justify-between font-semibold text-sm">
-          <span>RAZEM: {monthTotal}</span>
-          {totalAmount && <span>{totalAmount} zł</span>}
-        </div>
+            {visibleDays.length === 0 ? (
+              <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+                W tym miesiącu nie ma jeszcze wpisów.{' '}
+                <button
+                  type="button"
+                  onClick={toggleHideEmpty}
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
+                  Pokaż wszystkie dni
+                </button>
+                , aby dodać pierwsze zadanie.
+              </div>
+            ) : (
+              visibleDays.map((day) => {
+                const dateKey = format(day, 'yyyy-MM-dd');
+                return (
+                  <DayRow
+                    key={dateKey}
+                    day={day}
+                    dayData={daysData[dateKey] ?? { date: dateKey, tasks: [], totalHours: '00:00' }}
+                    isToday={dateKey === todayKey}
+                    isHighlighted={highlightDate === dateKey}
+                    assigners={assigners}
+                    onUpdateTasks={onUpdateTasks}
+                    onMoveTask={onMoveTask}
+                  />
+                );
+              })
+            )}
+
+            <div className="flex items-center justify-between gap-4 border-t bg-muted/40 px-4 py-3 md:grid md:grid-cols-[88px_1fr_76px]">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Razem
+              </span>
+              <span className="hidden text-right text-sm text-muted-foreground md:block">
+                {totalAmount &&
+                  `${Number(totalAmount).toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł`}
+              </span>
+              <span className="tabular text-right font-display text-lg font-semibold">
+                {monthTotal}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="flex justify-end" data-tour="pdf-export">
-        <PdfExportButton
-          currentMonth={currentMonth}
-          daysData={daysData}
-          clientName={clientName}
-          clientLogo={clientLogo}
-          monthTotal={monthTotal}
-          totalAmount={totalAmount}
-          getDayName={getDayName}
-          calculateTotalHours={calculateTotalHours}
-          getDaysInMonth={getDaysInMonth}
-        />
-      </div>
-    </div>
-  )
+      <DayPanel
+        dateKey={panelDate}
+        dayData={panelDate ? daysData[panelDate] : undefined}
+        assigners={assigners}
+        onClose={() => setPanelDate(null)}
+        onUpdateTasks={onUpdateTasks}
+      />
+    </DraftScopeContext.Provider>
+  );
 }

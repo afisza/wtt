@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#d22f27" />
+    <meta name="theme-color" content="#181A2F" />
     <meta name="description" content="Aplikacja do śledzenia czasu pracy — zarządzaj zadaniami, śledź godziny, eksportuj raporty." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -17,7 +17,22 @@
     <link rel="shortcut icon" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
     <link rel="manifest" href="/manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Figtree:wght@400..700&display=swap"
+      rel="stylesheet"
+    />
     <title>Afisza Time Tracker</title>
+    <script>
+      // Ustaw motyw przed pierwszym renderem (bez mignięcia)
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || (!t && !window.matchMedia('(prefers-color-scheme: light)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

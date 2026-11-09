@@ -1,189 +1,177 @@
-import { useEffect, useState, lazy, Suspense } from 'react'
-import { useNavigate, Link } from 'react-router'
-import LoginForm from '@/components/LoginForm'
-import ClientTabs from '@/components/ClientTabs'
-const OnboardingTour = lazy(() => import('@/components/OnboardingTour'))
-import { basePath } from '@/lib/apiBase'
-import { Settings, LogOut, Menu, Calendar, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet'
+import { useEffect, useState, lazy, Suspense } from 'react';
+import { Link } from 'react-router';
+import LoginForm from '@/components/LoginForm';
+import ClientTabs from '@/components/ClientTabs';
+import SaveIndicator from '@/components/SaveIndicator';
+import { basePath } from '@/lib/apiBase';
+import { markSessionRestored } from '@/lib/api';
+import { Settings, LogOut, Calendar, Search, Moon, Sun } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
+
+const OnboardingTour = lazy(() => import('@/components/OnboardingTour'));
 
 export default function HomePage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
+  const [auth, setAuth] = useState<'checking' | 'in' | 'out'>('checking');
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch(`${basePath}/api/auth/verify`, {
-          credentials: 'include',
-        })
-        if (response.ok) {
-          const data = await response.json()
-          setIsAuthenticated(data.authenticated === true)
-        } else {
-          setIsAuthenticated(false)
-        }
-      } catch {
-        setIsAuthenticated(false)
-      }
-      setLoading(false)
-    }
-    checkAuth()
-  }, [])
-
-  const handleLogin = () => {
-    setIsAuthenticated(true)
-  }
+    fetch(`${basePath}/api/auth/verify`, { credentials: 'include', cache: 'no-store' })
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        setAuth(r.ok && data.authenticated === true ? 'in' : 'out');
+      })
+      .catch(() => setAuth('out'));
+  }, []);
 
   const handleLogout = async () => {
     try {
-      await fetch(`${basePath}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      })
-    } catch { /* ignore */ }
-    setIsAuthenticated(false)
-    navigate('/')
-  }
+      await fetch(`${basePath}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+    } catch {
+      /* ignore */
+    }
+    setAuth('out');
+  };
 
-  if (loading) {
+  if (auth === 'checking') {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background">
         <img
           src={`${basePath}/logo.png`}
-          alt="Afisza Time Tracker"
-          className="w-16 h-16 rounded-2xl object-contain splash-logo mb-4"
+          alt=""
+          className="splash-logo h-12 w-12 rounded-xl object-contain"
         />
-        <h1 className="text-lg font-semibold text-foreground mb-1">Afisza Time Tracker</h1>
-        <p className="text-sm text-muted-foreground">Ładowanie...</p>
+        <p className="text-sm text-muted-foreground">Ładowanie…</p>
       </div>
-    )
+    );
   }
 
-  if (!isAuthenticated) {
-    return <LoginForm onLogin={handleLogin} />
+  if (auth === 'out') {
+    return (
+      <LoginForm
+        onLogin={() => {
+          markSessionRestored();
+          setAuth('in');
+        }}
+      />
+    );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-[1400px] mx-auto flex items-center justify-between px-4 py-2.5">
-          <div className="flex items-center gap-3">
-            <img
-              src={`${basePath}/logo.png`}
-              alt="Afisza Time Tracker"
-              className="w-8 h-8 rounded-lg object-contain"
-            />
-            <h1 className="text-sm font-semibold text-foreground hidden sm:block">
-              Afisza Time Tracker
-            </h1>
-          </div>
-
-          {/* Desktop nav */}
-          <div className="hidden sm:flex items-center gap-2">
-            <Button variant="outline" size="sm" className="min-h-[44px]" asChild>
-              <Link to="/settings">
-                <Settings className="h-4 w-4 mr-2" />
-                Ustawienia
-              </Link>
-            </Button>
-            <Button variant="default" size="sm" className="min-h-[44px]" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Wyloguj
-            </Button>
-          </div>
-
-          {/* Mobile hamburger */}
-          <div className="sm:hidden">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px]" aria-label="Menu nawigacji">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-64">
-                <SheetHeader>
-                  <SheetTitle>Menu</SheetTitle>
-                </SheetHeader>
-                <nav className="flex flex-col gap-3 mt-6">
-                  <Button variant="outline" className="justify-start min-h-[44px]" asChild>
-                    <Link to="/settings">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Ustawienia
-                    </Link>
-                  </Button>
-                  <Button variant="destructive" className="justify-start min-h-[44px]" onClick={handleLogout}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Wyloguj
-                  </Button>
-                </nav>
-              </SheetContent>
-            </Sheet>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main id="main-content" className="max-w-[1400px] mx-auto px-4 py-4 pb-20 sm:pb-4">
-        <ClientTabs />
-      </main>
-
-      {/* Onboarding tour for new users */}
+    <AppShell onLogout={handleLogout}>
+      <ClientTabs />
       <Suspense fallback={null}>
         <OnboardingTour />
       </Suspense>
+    </AppShell>
+  );
+}
 
-      {/* Mobile bottom navigation */}
+export function AppShell({
+  children,
+  onLogout,
+}: {
+  children: React.ReactNode;
+  onLogout: () => void;
+}) {
+  const { theme, toggleTheme } = useTheme();
+
+  const iconBtn =
+    'grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground';
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-50 border-b bg-background/85 backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-4">
+          <Link to="/" className="flex items-center gap-2.5">
+            <img
+              src={`${basePath}/logo.png`}
+              alt=""
+              className="h-7 w-7 rounded-md object-contain"
+            />
+            <span className="hidden font-display text-[15px] font-semibold sm:block">
+              Afisza Time Tracker
+            </span>
+          </Link>
+
+          <SaveIndicator className="ml-auto" />
+
+          <nav className="hidden items-center gap-1 sm:flex" aria-label="Nawigacja">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className={iconBtn}
+              aria-label={theme === 'dark' ? 'Motyw jasny' : 'Motyw ciemny'}
+              title={theme === 'dark' ? 'Motyw jasny' : 'Motyw ciemny'}
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <Link to="/settings" className={iconBtn} aria-label="Ustawienia" title="Ustawienia">
+              <Settings className="h-4 w-4" />
+            </Link>
+            <button
+              type="button"
+              onClick={onLogout}
+              className={iconBtn}
+              aria-label="Wyloguj"
+              title="Wyloguj"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <main id="main-content" className="mx-auto max-w-[1400px] px-4 pb-24 pt-5 sm:pb-10">
+        {children}
+      </main>
+
+      {/* Dolna nawigacja (mobile) */}
       <nav
-        className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-t flex items-center justify-around py-1 safe-bottom"
+        className="safe-bottom fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t bg-background/95 backdrop-blur sm:hidden"
         aria-label="Nawigacja mobilna"
       >
-        <button
-          className="flex flex-col items-center gap-0.5 p-2 min-h-[48px] min-w-[48px] text-primary"
-          aria-label="Kalendarz"
-          aria-current="page"
-        >
-          <Calendar className="h-5 w-5" />
-          <span className="text-[10px] font-medium">Kalendarz</span>
-        </button>
-        <button
-          className="flex flex-col items-center gap-0.5 p-2 min-h-[48px] min-w-[48px] text-muted-foreground"
-          aria-label="Szukaj"
-          onClick={() => {
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
-          }}
-        >
-          <Search className="h-5 w-5" />
-          <span className="text-[10px] font-medium">Szukaj</span>
-        </button>
-        <Link
-          to="/settings"
-          className="flex flex-col items-center gap-0.5 p-2 min-h-[48px] min-w-[48px] text-muted-foreground"
-          aria-label="Ustawienia"
-        >
-          <Settings className="h-5 w-5" />
-          <span className="text-[10px] font-medium">Ustawienia</span>
-        </Link>
-        <button
-          className="flex flex-col items-center gap-0.5 p-2 min-h-[48px] min-w-[48px] text-muted-foreground"
-          onClick={handleLogout}
-          aria-label="Wyloguj"
-        >
-          <LogOut className="h-5 w-5" />
-          <span className="text-[10px] font-medium">Wyloguj</span>
-        </button>
+        {[
+          { label: 'Kalendarz', icon: Calendar, to: '/', active: true },
+          {
+            label: 'Szukaj',
+            icon: Search,
+            onClick: () =>
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true })),
+          },
+          {
+            label: theme === 'dark' ? 'Jasny' : 'Ciemny',
+            icon: theme === 'dark' ? Sun : Moon,
+            onClick: toggleTheme,
+          },
+          { label: 'Ustawienia', icon: Settings, to: '/settings' },
+          { label: 'Wyloguj', icon: LogOut, onClick: onLogout },
+        ].map((item) => {
+          const cls = cn(
+            'flex min-h-[52px] min-w-[56px] flex-col items-center justify-center gap-0.5 text-[10px] font-medium',
+            item.active ? 'text-highlight-ink' : 'text-muted-foreground',
+          );
+          const content = (
+            <>
+              <item.icon className="h-5 w-5" />
+              {item.label}
+            </>
+          );
+          return item.to ? (
+            <Link
+              key={item.label}
+              to={item.to}
+              className={cls}
+              aria-current={item.active ? 'page' : undefined}
+            >
+              {content}
+            </Link>
+          ) : (
+            <button key={item.label} type="button" onClick={item.onClick} className={cls}>
+              {content}
+            </button>
+          );
+        })}
       </nav>
     </div>
-  )
+  );
 }

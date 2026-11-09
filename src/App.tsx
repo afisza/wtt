@@ -4,6 +4,7 @@ import HomePage from '@/pages/HomePage';
 import SettingsPage from '@/pages/SettingsPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import SessionGuard from '@/components/SessionGuard';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
+      <SessionGuard />
     </ErrorBoundary>
   );
 }
