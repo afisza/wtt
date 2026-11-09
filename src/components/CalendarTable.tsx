@@ -5,6 +5,7 @@ import { useCalendarData, type TasksUpdater } from '@/hooks/useCalendarData';
 import { DraftScopeContext } from '@/lib/drafts';
 import { calculateTotalHours, DAY_NAMES } from '@/lib/tasks';
 import { storage } from '@/lib/storage';
+import { useRateBasis } from '@/lib/rate';
 import { useToast } from '@/contexts/ToastContext';
 import CalendarHeader from '@/components/calendar/CalendarHeader';
 import DayRow from '@/components/calendar/DayRow';
@@ -53,6 +54,7 @@ export default function CalendarTable({
     goToToday,
     goToMonth,
   } = useCalendarData(clientId);
+  const rateBasis = useRateBasis();
   const [view, setView] = useState<CalendarView>(() => {
     const v = storage.get(VIEW_KEY) as CalendarView | null;
     return v && VIEWS.some((x) => x.id === v) ? v : 'list';
@@ -165,7 +167,7 @@ export default function CalendarTable({
         </div>
         {totalAmount && (
           <div>
-            <dt className="text-xs text-muted-foreground">Kwota</dt>
+            <dt className="text-xs text-muted-foreground">Kwota {rateBasis}</dt>
             <dd className="tabular font-display text-xl font-semibold text-highlight-ink">
               {Number(totalAmount).toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
             </dd>
@@ -242,10 +244,7 @@ export default function CalendarTable({
               daysData={daysData}
               clientName={clientName}
               clientLogo={clientLogo}
-              monthTotal={monthTotal}
               totalAmount={totalAmount}
-              getDayName={(d: Date) => DAY_NAMES[getDay(d)]}
-              calculateTotalHours={calculateTotalHours}
               getDaysInMonth={() => days}
             />
           </div>
@@ -332,7 +331,7 @@ export default function CalendarTable({
               </span>
               <span className="hidden text-right text-sm text-muted-foreground md:block">
                 {totalAmount &&
-                  `${Number(totalAmount).toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł`}
+                  `${Number(totalAmount).toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł ${rateBasis}`}
               </span>
               <span className="tabular text-right font-display text-lg font-semibold">
                 {monthTotal}

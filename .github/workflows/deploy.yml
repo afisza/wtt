@@ -1,0 +1,321 @@
+# Budowanie i wdrożenie Afisza Time Tracker na timer.afisza.com (wzorzec z HR/ATM).
+#
+# Wyzwalacz: tag `v*` (tworzy go `scripts/release.sh … --push`) albo ręcznie (Actions → Run workflow).
+# Nie `push` na `main` — wdrożenie ma być decyzją, a nie skutkiem ubocznym scalenia gałęzi.
+#
+# ⚠️ KOLEJNOŚĆ KROKÓW JEST CZĘŚCIĄ MECHANIZMU. `version.json` stemplujemy PRZED `npm run build`,
+# bo Vite wpisuje stempel do paczki (`__APP_BUILD__`). Ten sam plik jedzie obok `index.html` JAKO
+# OSTATNI, więc otwarta karta porównuje „z czym mnie zbudowano” z „co serwer wydaje teraz”
+# i pokazuje okno „Nowa wersja dostępna” (`src/components/UpdateBanner.tsx`).
+#
+# Potok NIC nie zrobi, dopóki w repozytorium nie ustawisz zmiennej `DEPLOY_ENABLED = true`.
+# Konfiguracja (Settings → Secrets and variables → Actions):
+#   sekrety:  FTP_SERVER, FTP_USERNAME, FTP_PASSWORD
+#   zmienne:  DEPLOY_ENABLED=true, DEPLOY_PATH (katalog strony na FTP, ze slashem na końcu, np. `public_html/`
+#             albo `domains/timer.afisza.com/public_html/`), HEALTH_CHECK_URL=https://timer.afisza.com/api/health
+#
+# Dane serwera (`data/` — konfiguracja bazy, klucz JWT) i wgrane pliki (`avatars/`) NIGDY nie są
+# w paczce, więc wdrożenie ich nie nadpisze ani nie skasuje.
+
+name: Build & Deploy
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      full_deploy:
+        description: 'Pełna kopia zamiast przyrostowej (wysyła wszystko, także niezmienione pliki)'
+        type: boolean
+        default: false
+
+# Dwa wdrożenia naraz piszą po tym samym katalogu — kolejkujemy, nie przerywamy.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Deploy (production)
+    runs-on: ubuntu-latest
+    if: vars.DEPLOY_ENABLED == 'true'
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Stempel wersji — MUSI stać przed budowaniem.
+      - name: Stamp version.json
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          BUILD="${{ github.run_number }}-$(git rev-parse --short HEAD)"
+          cat > version.json <<JSON
+          {
+            "version": "${VERSION}",
+            "build": "${BUILD}",
+            "date": "$(date +%Y-%m-%d)",
+            "channel": "stable"
+          }
+          JSON
+          cat version.json
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Set up PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer
+
+      - name: PHP lint
+        run: |
+          find api -name '*.php' -not -path 'api/vendor/*' -print0 \
+            | xargs -0 -n1 php -l > /dev/null
+
+      - name: Build frontend
+        run: npx vite build
+
+      - name: Sanity check — stamp landed in the bundle
+        run: |
+          BUILD=$(node -p "require('./version.json').build")
+          grep -rq "$BUILD" dist/assets/*.js \
+            || { echo "::error::Stempel $BUILD nie trafił do paczki — wykrywanie nowej wersji nie zadziała"; exit 1; }
+          echo "Stempel $BUILD jest w paczce."
+
+      - name: Install PHP dependencies (production)
+        run: composer install -d api --no-dev --optimize-autoloader --no-interaction
+
+      - name: Create deployment package
+        run: |
+          # Paczka ma kształt DOKŁADNIE taki jak katalog na serwerze: ścieżka w paczce = ścieżka zdalna.
+          mkdir -p deploy-out
+          cp -a dist/. deploy-out/
+          find deploy-out -name '*.map' -delete
+          # Wgrane awatary/logo należą do serwera. `public/avatars` to kopia deweloperska — nie wysyłamy,
+          # bo plik raz zapisany w spisie byłby kiedyś skasowany z serwera.
+          rm -rf deploy-out/avatars
+
+          rsync -a --exclude '.DS_Store' api/ deploy-out/api/
+          cp CHANGELOG.md deploy-out/api/CHANGELOG.md
+          cp deploy/htaccess.production deploy-out/.htaccess
+          cp version.json deploy-out/
+
+          ( cd deploy-out && find . -type f -printf '%P\n' | LC_ALL=C sort \
+              | xargs -d '\n' -r sha256sum ) > manifest.txt
+          echo "Plików w paczce: $(wc -l < manifest.txt)"
+
+          echo '--- kontrola: w paczce nie ma danych serwera ---'
+          ! find deploy-out \( -path '*/data/*' -o -name 'db-config.json' -o -name '.jwt-secret' -o -name '.env*' \) | grep -q . \
+            || { echo '::error::Paczka zawiera dane/konfigurację serwera'; exit 1; }
+          [ -f deploy-out/api/vendor/autoload.php ] || { echo '::error::Brak api/vendor — API nie wystartuje'; exit 1; }
+          [ -f deploy-out/index.html ] || { echo '::error::Brak index.html'; exit 1; }
+
+          tar -czf wtt-deploy.tar.gz -C deploy-out .
+          du -h wtt-deploy.tar.gz
+
+      - name: Deploy over FTP
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          FULL: ${{ github.event.inputs.full_deploy }}
+        run: |
+          sudo apt-get install -y -qq lftp
+          : "${FTP_SERVER:?Brak sekretu FTP_SERVER}"
+          : "${DEPLOY_PATH:?Ustaw zmienną DEPLOY_PATH (np. public_html/)}"
+          case "${DEPLOY_PATH}" in */) ;; *) DEPLOY_PATH="${DEPLOY_PATH}/" ;; esac
+
+          # Łańcuch zaufania: hosting bywa, że wysyła sam certyfikat liścia. Dociągamy pośrednie
+          # spod adresu AIA — każdy musi się podpisem ułożyć w ścieżkę do korzenia z magazynu
+          # systemowego, więc to nie jest wyłączenie weryfikacji (przez to połączenie leci hasło).
+          CHAIN="$(mktemp)"
+          cat /etc/ssl/certs/ca-certificates.crt > "${CHAIN}"
+          NEXT="$(echo | openssl s_client -connect "${FTP_SERVER}:21" -starttls ftp 2>/dev/null \
+            | openssl x509 -noout -text 2>/dev/null \
+            | grep -A1 'Authority Information Access' | grep -o 'URI:http[^ ]*' \
+            | sed 's/^URI://' | head -1 || true)"
+          for _ in 1 2 3; do
+            [ -n "${NEXT}" ] || break
+            CERT="$(mktemp)"
+            curl -fsS --max-time 20 "${NEXT}" -o "${CERT}" || break
+            openssl x509 -inform DER -in "${CERT}" -outform PEM >> "${CHAIN}" 2>/dev/null || break
+            echo "  + certyfikat pośredni: $(openssl x509 -inform DER -in "${CERT}" -noout -subject)"
+            NEXT="$(openssl x509 -inform DER -in "${CERT}" -noout -text \
+              | grep -A1 'Authority Information Access' | grep -o 'URI:http[^ ]*' \
+              | sed 's/^URI://' | head -1 || true)"
+          done
+
+          # Wysyłamy tylko pliki, których skrót różni się od spisu z POPRZEDNIEGO wdrożenia
+          # (leży na serwerze). Kasujemy wyłącznie to, co sami kiedyś wysłaliśmy (ścieżki ze starego
+          # spisu) — plik postawiony na serwerze poza wdrożeniem nigdy nie zniknie.
+          # Nazwa zaczyna się od `.ht`, więc Apache jej nie wyda.
+          REMOTE_MANIFEST='.ht-deploy-manifest'
+
+          COMMON="
+            set cmd:fail-exit true;
+            set ftp:ssl-allow true;
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set ssl:check-hostname true;
+            set ssl:ca-file ${CHAIN};
+            set net:max-retries 3;
+            set net:timeout 30;
+            set net:connection-limit 8;
+            open -u '${FTP_USERNAME}','${FTP_PASSWORD}' '${FTP_SERVER}';
+          "
+
+          rm -f remote-manifest.txt
+          if [ "$FULL" = 'true' ]; then
+            echo 'Wymuszono pełne wdrożenie — lecą wszystkie pliki.'
+            : > remote-manifest.txt
+          else
+            lftp -c "${COMMON} get ${DEPLOY_PATH}${REMOTE_MANIFEST} -o remote-manifest.txt;" \
+              || echo 'Nie udało się pobrać spisu z serwera.'
+            if [ ! -s remote-manifest.txt ]; then
+              rm -f remote-manifest.txt
+              : > remote-manifest.txt
+              # „Spisu nie ma” ≠ „spis jest, ale go nie pobraliśmy”.
+              if lftp -c "${COMMON} cls -1 ${DEPLOY_PATH}${REMOTE_MANIFEST};" >/dev/null 2>&1; then
+                echo "::error::Spis ${REMOTE_MANIFEST} JEST na serwerze, ale nie udało się go pobrać — przerywam."
+                exit 1
+              fi
+              echo 'Brak spisu na serwerze (pierwsze wdrożenie) — lecą wszystkie pliki.'
+            fi
+          fi
+
+          # sha256sum: 64 znaki skrótu, dwie spacje, ścieżka → substr($0, 67).
+          # Rozdzielamy pliki przez FILENAME, NIE `NR == FNR` (pusty pierwszy plik psuje ten idiom).
+          awk -v remote=remote-manifest.txt '
+            FILENAME == remote { remote_hash[substr($0, 67)] = substr($0, 1, 64); next }
+            { path = substr($0, 67); if (remote_hash[path] != substr($0, 1, 64)) print path }
+          ' remote-manifest.txt manifest.txt > changed.txt
+
+          awk -v local=manifest.txt '
+            FILENAME == local { local_has[substr($0, 67)] = 1; next }
+            { path = substr($0, 67); if (!(path in local_has)) print path }
+          ' manifest.txt remote-manifest.txt > removed.txt
+
+          TOTAL=$(wc -l < manifest.txt)
+          CHANGED=$(wc -l < changed.txt)
+          REMOVED=$(wc -l < removed.txt)
+          echo "--- Różnica wobec serwera ---"
+          echo "  bez zmian:    $((TOTAL - CHANGED))"
+          echo "  do wysłania:  ${CHANGED}"
+          echo "  do usunięcia: ${REMOVED}"
+
+          if [ ! -s remote-manifest.txt ] && [ "${CHANGED}" -ne "${TOTAL}" ]; then
+            echo "::error::Brak spisu na serwerze, a do wysłania wyszło ${CHANGED} z ${TOTAL} — porównanie jest zepsute."
+            exit 1
+          fi
+
+          # `version.json` poza katalogiem wysyłki — jedzie jako ostatni (przełącznik ogłaszający wdrożenie).
+          grep -vx 'version.json' changed.txt > changed-stage.txt || true
+          mkdir -p stage
+          rsync -a --files-from=changed-stage.txt deploy-out/ stage/
+
+          {
+            echo "${COMMON}"
+            echo "echo '--- Wysyłka zmienionych plików ---';"
+            echo "mirror --reverse --no-perms --parallel=8 --verbose=1 stage/ ${DEPLOY_PATH};"
+            if [ "${REMOVED}" -gt 0 ]; then
+              echo "echo '--- Kasowanie plików, których nie ma już w paczce ---';"
+              while IFS= read -r file; do
+                if [ -n "${file}" ]; then
+                  printf "rm -f %s%s;\n" "${DEPLOY_PATH}" "${file}"
+                fi
+              done < removed.txt
+            fi
+            echo "echo '--- version.json ---';"
+            echo "put deploy-out/version.json -o ${DEPLOY_PATH}version.json;"
+            # Spis na końcu: przerwane wdrożenie zostawia stary spis i następne powtórzy pliki.
+            echo "put manifest.txt -o ${DEPLOY_PATH}${REMOTE_MANIFEST};"
+          } > lftp-commands.txt
+
+          trap 'rm -f lftp-commands.txt' EXIT
+          lftp -f lftp-commands.txt
+
+      - name: Health check
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_CHECK_URL }}
+        run: |
+          if [ -z "$HEALTH_URL" ]; then
+            echo 'Pominięte — ustaw zmienną HEALTH_CHECK_URL (https://timer.afisza.com/api/health).'
+            exit 0
+          fi
+          for attempt in 1 2 3; do
+            BODY=$(curl -fsS --max-time 20 "$HEALTH_URL" || true)
+            echo "$BODY"
+            if echo "$BODY" | grep -q '"status":"ok"'; then
+              echo 'Serwer odpowiada poprawnie.'
+              exit 0
+            fi
+            echo "Próba ${attempt} nieudana, czekam 15 s…"
+            sleep 15
+          done
+          echo '::error::Serwer nie potwierdził poprawnego stanu po wdrożeniu.'
+          exit 1
+
+      # API może działać, a front zostać ze starego wdrożenia — sprawdzamy, czy index.html wskazuje
+      # paczkę z TEGO wdrożenia i czy stempel version.json się zgadza.
+      - name: Verify the frontend actually landed
+        env:
+          SITE_URL: ${{ vars.HEALTH_CHECK_URL }}
+        run: |
+          if [ -z "$SITE_URL" ]; then
+            echo 'Pominięte — brak HEALTH_CHECK_URL.'
+            exit 0
+          fi
+          BASE="${SITE_URL%/api/health}"
+          BUILD=$(node -p "require('./version.json').build")
+
+          REMOTE_BUILD=$(curl -fsS --max-time 20 "${BASE}/version.json?t=$(date +%s)" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).build")
+          [ "${REMOTE_BUILD}" = "${BUILD}" ] \
+            || { echo "::error::version.json na serwerze mówi '${REMOTE_BUILD}', a zbudowaliśmy '${BUILD}'"; exit 1; }
+
+          ASSET=$(curl -fsS --max-time 20 "${BASE}/" | grep -o '/assets/[A-Za-z0-9._-]*\.js' | head -1)
+          [ -n "${ASSET}" ] || { echo '::error::index.html na serwerze nie wskazuje żadnego pliku paczki'; exit 1; }
+          grep -q "$(basename "${ASSET}")" manifest.txt \
+            || { echo "::error::index.html wskazuje ${ASSET}, którego nie ma w tej paczce — front został ze starego wdrożenia"; exit 1; }
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "${BASE}${ASSET}")
+          [ "${CODE}" = '200' ] || { echo "::error::${ASSET} zwraca HTTP ${CODE}"; exit 1; }
+          echo "Front wydany poprawnie: ${ASSET} (HTTP 200), stempel ${REMOTE_BUILD}."
+
+      - name: Release notes from CHANGELOG.md
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            /^## \[/ { inside = index($0, "## [" v "]") == 1; next }
+            inside { print }
+          ' CHANGELOG.md > "${RUNNER_TEMP}/notes.md"
+          [ -s "${RUNNER_TEMP}/notes.md" ] || echo "Wydanie v${VERSION}." > "${RUNNER_TEMP}/notes.md"
+          cat "${RUNNER_TEMP}/notes.md"
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: wtt-deploy.tar.gz
+          body_path: ${{ runner.temp }}/notes.md

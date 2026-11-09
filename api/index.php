@@ -40,7 +40,10 @@ if (!in_array($_SERVER['REQUEST_METHOD'], $_csrfSafeMethods, true)) {
 
 // Parse route
 $uri = $_SERVER['REQUEST_URI'];
-$basePath = '/wtt/api';
+// Prefiks API wyliczany z położenia tego pliku: lokalnie `/wtt/api` (MAMP), na produkcji `/api`.
+// Dzięki temu ten sam plik działa w obu miejscach i wdrożenie niczego w nim nie podmienia.
+$basePath = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/api/index.php')), '/');
+if ($basePath === '' || $basePath === '.') $basePath = '/api';
 $path = parse_url($uri, PHP_URL_PATH);
 $route = str_replace($basePath, '', $path);
 $route = rtrim($route, '/');
@@ -71,6 +74,8 @@ $routes = [
     '/settings/storage-mode' => 'settings-storage-mode.php',
     '/settings/migrate-json-to-mysql' => 'settings-migrate.php',
     '/settings/fix-december-dates' => 'settings-fix-dates.php',
+    '/version/changelog' => 'version.php',
+    '/health' => 'health.php',
 ];
 
 $routeFile = $routes[$route] ?? null;

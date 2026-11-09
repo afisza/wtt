@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, Users, UserCheck, Coins, ShieldCheck, Database, Server } from 'lucide-react';
 import { basePath } from '@/lib/apiBase';
@@ -11,6 +11,9 @@ import AssignersTab from '@/components/settings/AssignersTab';
 import ClientsTab from '@/components/settings/ClientsTab';
 import TwoFactorTab from '@/components/settings/TwoFactorTab';
 import { cn } from '@/lib/utils';
+import { appVersion } from '@/lib/version';
+
+const WhatsNewDialog = lazy(() => import('@/components/WhatsNewDialog'));
 
 const TABS = [
   { id: 'clients', label: 'Klienci', icon: Users, Component: ClientsTab },
@@ -50,6 +53,7 @@ export default function SettingsPage() {
     navigate('/');
   };
 
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const current = TABS.find((t) => t.id === active)!;
 
   return (
@@ -87,6 +91,14 @@ export default function SettingsPage() {
               {tab.label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setWhatsNewOpen(true)}
+            className="hidden items-center gap-2 px-3 pt-6 text-left text-xs text-muted-foreground transition-colors hover:text-foreground md:flex"
+          >
+            Wersja {appVersion || '—'} ·{' '}
+            <span className="underline underline-offset-2">Co nowego</span>
+          </button>
         </nav>
 
         <section aria-label={current.label} className="animate-fade-in min-w-0" key={active}>
@@ -100,6 +112,18 @@ export default function SettingsPage() {
           )}
         </section>
       </div>
+      <button
+        type="button"
+        onClick={() => setWhatsNewOpen(true)}
+        className="mt-10 text-xs text-muted-foreground underline-offset-2 hover:underline md:hidden"
+      >
+        Wersja {appVersion || '—'} · Co nowego
+      </button>
+      {whatsNewOpen && (
+        <Suspense fallback={null}>
+          <WhatsNewDialog open onOpenChange={setWhatsNewOpen} />
+        </Suspense>
+      )}
     </AppShell>
   );
 }

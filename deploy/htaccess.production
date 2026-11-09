@@ -1,0 +1,50 @@
+# Produkcyjny .htaccess timer.afisza.com — potok wdrożenia kopiuje go jako `.htaccess` do korzenia.
+# (Lokalny `.htaccess` w repo jest deweloperski: wskazuje na `dist/`.)
+DirectoryIndex index.html
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self'; frame-ancestors 'none';"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+
+    # index.html i version.json zawsze świeże — inaczej po wdrożeniu przeglądarka trzyma starą
+    # aplikację, a okno „Nowa wersja” nie ma czego porównać. Pliki w assets/ mają skrót w nazwie,
+    # więc mogą leżeć w pamięci podręcznej długo.
+    <FilesMatch "^(index\.html|version\.json)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </FilesMatch>
+    <FilesMatch "\.(js|css|woff2?)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>
+
+RewriteEngine On
+RewriteBase /
+
+# ── Force HTTPS ──────────────────────────────────────────────────────────────
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# ── Block sensitive directories and files ────────────────────────────────────
+RewriteRule ^data/ - [F,L]
+RewriteRule ^database/ - [F,L]
+RewriteRule ^node_modules/ - [F,L]
+RewriteRule ^\.git/ - [F,L]
+RewriteRule ^\.env - [F,L]
+RewriteRule ^src/ - [F,L]
+RewriteRule \.md$ - [F,L]
+
+# API requests → PHP router
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# Static files → serve directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# SPA fallback
+RewriteRule ^ index.html [L]

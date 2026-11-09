@@ -13,6 +13,6 @@ Build and package the WTT app for production deployment:
    - `api/` directory (excluding `api/vendor/` if large — user can run `composer install` on server)
    - Production `.htaccess` (SPA fallback to `index.html`, not `dist/index.html`)
 
-Reminder: production uses `$basePath = '/api'` in `api/index.php` (dev uses `/wtt/api`). Do NOT modify this file — just remind the user to verify it's set correctly on the server.
+Note: `api/index.php` derives `$basePath` automatically (`/wtt/api` locally, `/api` in prod). Use `deploy/htaccess.production` as the zip's `.htaccess`. Preferred path is `./scripts/release.sh` + GitHub Actions (see CLAUDE.md); this zip is the manual fallback.
 
 The deploy zip should be saved as `wtt-deploy.zip` in the project root.

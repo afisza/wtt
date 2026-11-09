@@ -109,14 +109,23 @@ On load the outbox is overlaid on server data, so reloads / expired sessions / o
 - `.htaccess` differs between dev (references `dist/`) and production (flat structure)
 - PDF report (`src/components/calendar/PdfExportButton.tsx`) hard-truncates the task description to 100 chars (`task.text.substring(0, 97) + '...'`) — not driven by autoTable layout. Touch this constant if reports look truncated.
 
-## Deployment
+## Deployment & releases (same pattern as HR / ATM)
 
-Production deploy uses flat structure (no `dist/` prefix). Build process:
+```bash
+# 1. add a `## [X.Y.Z] - YYYY-MM-DD` section on top of CHANGELOG.md, commit it
+./scripts/release.sh minor          # dry run: gates (tsc, vitest, php -l) + bump + build
+./scripts/release.sh minor --push   # commit "chore: release vX.Y.Z", tag, push → GitHub Actions deploys
+```
 
-1. `npm run build` → creates `dist/`
-2. Copy `dist/*` contents to deploy root alongside `api/`, `data/`, `avatars/`
-3. Use production `.htaccess` (SPA fallback to `index.html`, not `dist/index.html`)
-4. Set `$basePath = '/api'` in `api/index.php` (dev uses `/wtt/api`)
+- `.github/workflows/deploy.yml` runs on tag `v*` (or manually) and only if repo variable `DEPLOY_ENABLED=true`.
+  Needs secrets `FTP_SERVER`/`FTP_USERNAME`/`FTP_PASSWORD` and variables `DEPLOY_PATH`, `HEALTH_CHECK_URL`.
+- Incremental FTPS upload: a sha256 manifest (`.ht-deploy-manifest` on the server) decides what to send; it only deletes
+  files it uploaded itself. `data/` and `avatars/` are never in the package. `version.json` is uploaded LAST.
+- Update detection: `version.json` is stamped BEFORE `vite build` → baked in as `__APP_BUILD__`; open tabs poll
+  `/version.json` (5 min + on focus) and show `UpdateBanner` ("Nowa wersja dostępna"). `WhatsNewDialog` reads
+  `GET /api/version/changelog` (CHANGELOG.md copied into `api/` by CI). `GET /api/health` = post-deploy check.
+- Production `.htaccess` lives in `deploy/htaccess.production` (the repo-root `.htaccess` is the dev one → `dist/`).
+- `api/index.php` derives `$basePath` from `SCRIPT_NAME` (`/wtt/api` locally, `/api` in prod) — no manual edit.
 
 ## AI Tool Configs
 

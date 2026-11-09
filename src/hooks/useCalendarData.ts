@@ -9,6 +9,7 @@ import {
   SESSION_RESTORED_EVENT,
 } from '@/lib/api';
 import { storage } from '@/lib/storage';
+import { getHourlyRate, isRateKey } from '@/lib/rate';
 import { calculateTotalHours, normalizeTask, sumHours, MONTH_NAMES } from '@/lib/tasks';
 import {
   ackDays,
@@ -62,7 +63,7 @@ export function useCalendarData(clientId: number | null) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
-  const [hourlyRate, setHourlyRate] = useState<string>(() => storage.get('hourlyRate') || '');
+  const [hourlyRate, setHourlyRate] = useState<string>(getHourlyRate);
   const [assigners, setAssigners] = useState<Assigner[]>([]);
 
   const monthKey = format(currentMonth, 'yyyy-MM');
@@ -307,9 +308,9 @@ export function useCalendarData(clientId: number | null) {
     const onStorage = (e: StorageEvent) => {
       const cid = clientIdRef.current;
       if (cid != null && e.key === `wtt:outbox:v1:${cid}`) outboxRef.current = loadOutbox(cid);
-      if (e.key === 'hourlyRate') setHourlyRate(e.newValue || '');
+      if (isRateKey(e.key)) setHourlyRate(getHourlyRate());
     };
-    const onRate = () => setHourlyRate(storage.get('hourlyRate') || '');
+    const onRate = () => setHourlyRate(getHourlyRate());
 
     document.addEventListener('visibilitychange', onHide);
     document.addEventListener('visibilitychange', onVisible);
@@ -422,7 +423,11 @@ export function useCalendarData(clientId: number | null) {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
       const t = e.target as HTMLElement | null;
-      if (!t?.closest || t.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      if (
+        !t?.closest ||
+        t.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')
+      )
+        return;
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         changeMonth(-1);

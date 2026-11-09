@@ -5,6 +5,7 @@ import SettingsPage from '@/pages/SettingsPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import SessionGuard from '@/components/SessionGuard';
+import UpdateBanner from '@/components/UpdateBanner';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         </Routes>
       </Suspense>
       <SessionGuard />
+      <UpdateBanner />
     </ErrorBoundary>
   );
 }
