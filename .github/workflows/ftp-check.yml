@@ -1,0 +1,74 @@
+# Kontrola połączenia wdrożeniowego, uruchamiana ręcznie (Actions → FTP check → Run workflow).
+# Loguje się sekretami wdrożenia przez szyfrowane FTPS, listuje katalog główny FTP, katalog domeny
+# i DEPLOY_PATH (jeśli ustawiony) oraz sprawdza, czy jest spis wdrożenia. NICZEGO nie wysyła ani nie kasuje.
+# Logika łańcucha certyfikatów taka sama jak w deploy.yml (trzymać w zgodzie).
+name: FTP check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in and list
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq lftp > /dev/null
+          CHAIN="$(mktemp)"
+          cat /etc/ssl/certs/ca-certificates.crt > "${CHAIN}"
+          NEXT="$(echo | openssl s_client -connect "${FTP_SERVER}:21" -starttls ftp 2>/dev/null \
+            | openssl x509 -noout -text 2>/dev/null \
+            | grep -A1 'Authority Information Access' | grep -o 'URI:http[^ ]*' | sed 's/^URI://' | head -1 || true)"
+          for _ in 1 2 3; do
+            [ -n "${NEXT}" ] || break
+            CERT="$(mktemp)"
+            curl -fsS --max-time 20 "${NEXT}" -o "${CERT}" || break
+            openssl x509 -inform DER -in "${CERT}" -outform PEM >> "${CHAIN}" 2>/dev/null || break
+            echo "  + certyfikat pośredni: $(openssl x509 -inform DER -in "${CERT}" -noout -subject)"
+            NEXT="$(openssl x509 -inform DER -in "${CERT}" -noout -text \
+              | grep -A1 'Authority Information Access' | grep -o 'URI:http[^ ]*' | sed 's/^URI://' | head -1 || true)"
+          done
+          echo '--- certyfikat serwera FTP ---'
+          echo | openssl s_client -connect "${FTP_SERVER}:21" -starttls ftp 2>/dev/null \
+            | openssl x509 -noout -subject -issuer -ext subjectAltName 2>/dev/null || echo '(brak — serwer nie obsługuje FTPS?)'
+          COMMON="
+            set cmd:fail-exit true;
+            set ftp:ssl-allow true;
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set ssl:check-hostname true;
+            set ssl:ca-file ${CHAIN};
+            set net:max-retries 2;
+            set net:timeout 30;
+            open --env-password -u '${FTP_USERNAME}' '${FTP_SERVER}';
+          "
+          echo '--- katalog główny FTP (pwd + lista) ---'
+          lftp -c "${COMMON} pwd; cls -1 --sort=name -a ./;"
+          for d in domains/timer.afisza.com/ domains/timer.afisza.com/public_html/ public_html/; do
+            echo "--- ${d} ---"
+            lftp -c "${COMMON} cls -1 --sort=name -a ${d};" 2>&1 | head -60 || echo '(brak)'
+          done
+          # Obecny .htaccess na serwerze — wdrożenie go nadpisze, więc porównujemy go z deploy/htaccess.production.
+          for f in domains/timer.afisza.com/public_html/.htaccess domains/timer.afisza.com/.htaccess public_html/.htaccess; do
+            echo "--- zawartość ${f} ---"
+            lftp -c "${COMMON} cat ${f};" 2>/dev/null || echo '(brak)'
+          done
+          if [ -n "${DEPLOY_PATH}" ]; then
+            echo "--- DEPLOY_PATH = ${DEPLOY_PATH} ---"
+            lftp -c "${COMMON} cls -1 --sort=name -a ${DEPLOY_PATH};"
+            if lftp -c "${COMMON} cls -1 ${DEPLOY_PATH}.ht-deploy-manifest;" > /dev/null 2>&1; then
+              echo 'Spis wdrożenia jest na serwerze: następne wdrożenie wyśle tylko zmienione pliki.'
+            else
+              echo 'Brak spisu wdrożenia: pierwsze wdrożenie wyśle wszystkie pliki.'
+            fi
+          fi

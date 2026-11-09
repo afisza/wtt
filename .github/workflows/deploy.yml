@@ -137,7 +137,7 @@ jobs:
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
           FULL: ${{ github.event.inputs.full_deploy }}
         run: |
@@ -183,7 +183,7 @@ jobs:
             set net:max-retries 3;
             set net:timeout 30;
             set net:connection-limit 8;
-            open -u '${FTP_USERNAME}','${FTP_PASSWORD}' '${FTP_SERVER}';
+            open --env-password -u '${FTP_USERNAME}' '${FTP_SERVER}';
           "
 
           rm -f remote-manifest.txt
