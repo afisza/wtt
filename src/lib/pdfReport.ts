@@ -20,7 +20,7 @@ import {
   taskMinutes,
   type ReportSummary,
 } from '@/lib/reportSummary';
-import { basisDescription, type RateBasis } from '@/lib/rate';
+import { DEFAULT_VAT_RATE, splitAmount, type RateBasis } from '@/lib/rate';
 
 import figtreeRegularUrl from '@/assets/fonts/Figtree-Regular.ttf?url';
 import figtreeSemiBoldUrl from '@/assets/fonts/Figtree-SemiBold.ttf?url';
@@ -130,6 +130,8 @@ export interface WorkReportInput {
   hourlyRate?: string | null;
   /** Czy stawka i kwota są netto czy brutto (Ustawienia → Stawka godzinowa). */
   rateBasis?: RateBasis;
+  /** VAT w % — do rozbicia kwoty na netto / VAT / brutto. */
+  vatRate?: number;
 }
 
 const PAGE_W = 210;
@@ -187,6 +189,10 @@ export async function generateWorkReport(input: WorkReportInput): Promise<void> 
   const hasAmount = !!input.totalAmount && Number.isFinite(amount) && amount > 0;
   const rate = Number(String(input.hourlyRate ?? '').replace(',', '.'));
   const basis: RateBasis = input.rateBasis ?? 'netto';
+  const vatRate = input.vatRate ?? DEFAULT_VAT_RATE;
+  const vatLabel = `${String(vatRate).replace('.', ',')}%`;
+  const money = splitAmount(hasAmount ? amount : 0, basis, vatRate);
+  const rateSplit = rate > 0 ? splitAmount(rate, basis, vatRate) : null;
 
   // Czcionki aplikacji: Figtree (tekst, regular + semibold jako „bold”), Bricolage Grotesque (tytuły).
   let font = 'helvetica';
@@ -317,9 +323,9 @@ export async function generateWorkReport(input: WorkReportInput): Promise<void> 
   ];
   if (hasAmount)
     cards.push({
-      label: `DO ZAPŁATY · ${basis.toUpperCase()}`,
-      value: formatMoney(amount),
-      sub: rate > 0 ? `stawka ${formatMoney(rate)}/h ${basis}` : `kwota ${basisDescription(basis)}`,
+      label: 'DO ZAPŁATY · BRUTTO',
+      value: formatMoney(money.gross),
+      sub: `netto ${formatMoney(money.net)} + VAT ${vatLabel}`,
       highlight: true,
     });
 
@@ -481,23 +487,35 @@ export async function generateWorkReport(input: WorkReportInput): Promise<void> 
     ];
     body.push(totalRow);
     if (hasAmount) {
-      body.push([
+      // Netto → VAT → brutto; brutto wyróżnione jako kwota do zapłaty.
+      const moneyRow = (label: string, value: number, strong = false, last = false): Cell[] => [
         {
-          content:
-            rate > 0
-              ? `Do zapłaty ${basis}  (${formatHours(summary.totalMinutes)} × ${formatMoney(rate)}/h)`
-              : `Do zapłaty ${basis}`,
+          content: label,
           colSpan: 3,
-          bold: true,
-          styles: { fillColor: C.peachTint, textColor: C.ink, fontSize: 9.5 },
+          bold: strong,
+          keepWithNext: !last,
+          styles: { fillColor: C.peachTint, textColor: C.ink, fontSize: strong ? 9.5 : 8.5 },
         },
         {
-          content: formatMoney(amount),
+          content: formatMoney(value),
           colSpan: 2,
-          bold: true,
-          styles: { fillColor: C.peachTint, textColor: C.ink, halign: 'right', fontSize: 9.5 },
+          bold: strong,
+          styles: {
+            fillColor: C.peachTint,
+            textColor: C.ink,
+            halign: 'right',
+            fontSize: strong ? 9.5 : 8.5,
+          },
         },
-      ]);
+      ];
+      // Mnożenie pokazujemy przy kwocie, w której stawka jest wpisana — druga wynika z VAT
+      // (stawka po przeliczeniu jest zaokrąglona, więc jej iloczyn różniłby się o grosze).
+      const formula = rate > 0 ? `  (${formatHours(summary.totalMinutes)} × ${formatMoney(rate)}/h)` : '';
+      body.push(
+        moneyRow(`Netto${basis === 'netto' ? formula : ''}`, money.net),
+        moneyRow(`VAT ${vatLabel}`, money.vat),
+        moneyRow(`Do zapłaty brutto${basis === 'brutto' ? formula : ''}`, money.gross, true, true),
+      );
     }
 
     const BOTTOM = 20;
@@ -566,10 +584,15 @@ export async function generateWorkReport(input: WorkReportInput): Promise<void> 
         if (!r[0]?.keepWithNext) return;
         const a = pos.get(i);
         const b = pos.get(i + 1);
-        if (a && b && a.page !== b.page) orphans.push({ index: i, y: a.y });
+        if (!a || !b || a.page === b.page) return;
+        // Cały łańcuch „trzymaj z następnym” (np. Razem → Netto → VAT → Brutto) idzie razem.
+        let start = i;
+        while (start > 0 && rows[start - 1][0]?.keepWithNext) start--;
+        const s0 = pos.get(start);
+        if (s0 && !orphans.some((o) => o.index === start)) orphans.push({ index: start, y: s0.y });
       });
       if (orphans.length === 0) break;
-      for (const o of orphans.reverse()) {
+      for (const o of orphans.sort((x, y) => y.index - x.index)) {
         const h = PAGE_H - BOTTOM - o.y - 0.5;
         if (h <= 0) continue;
         rows.splice(o.index, 0, [
@@ -589,7 +612,9 @@ export async function generateWorkReport(input: WorkReportInput): Promise<void> 
         ?.finalY;
       if (finalY && finalY + 10 < PAGE_H - BOTTOM) {
         text(
-          `Kwoty w raporcie są ${basisDescription(basis)}.${rate > 0 ? ` Stawka godzinowa: ${formatMoney(rate)} ${basis}.` : ''}`,
+          rateSplit
+            ? `Stawka godzinowa: ${formatMoney(rateSplit.net)} netto / ${formatMoney(rateSplit.gross)} brutto (VAT ${vatLabel}).`
+            : `Kwoty: netto + VAT ${vatLabel} = brutto.`,
           M,
           finalY + 7,
           { size: 7.5, c: C.muted },

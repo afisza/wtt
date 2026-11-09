@@ -2,6 +2,13 @@
 
 Wszystkie istotne zmiany w Afisza Time Tracker. Najnowsza wersja na górze.
 
+## [2.2.0] - 2026-11-09
+
+### Kwoty netto i brutto
+- Podsumowanie miesiąca pokazuje jednocześnie kwotę netto i brutto.
+- Raport PDF rozbija kwotę na netto, VAT i „Do zapłaty brutto”.
+- W ustawieniach stawki doszła stawka VAT (domyślnie 23%) z podglądem stawki netto i brutto za godzinę.
+
 ## [2.1.0] - 2026-11-09
 
 ### Wpisy już nie znikają

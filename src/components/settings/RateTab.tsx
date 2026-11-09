@@ -1,15 +1,20 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import {
   DEFAULT_HOURLY_RATE,
   DEFAULT_RATE_BASIS,
+  DEFAULT_VAT_RATE,
   getHourlyRate,
   getRateBasis,
+  getVatRate,
   RATE_UPDATED_EVENT,
   setHourlyRate as saveHourlyRate,
   setRateBasis,
+  setVatRate,
+  splitAmount,
   type RateBasis,
 } from '@/lib/rate';
+import { formatMoney } from '@/lib/reportSummary';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +29,17 @@ export default function RateTab() {
   const { showToast } = useToast();
   const [hourlyRate, setHourlyRate] = useState<string>(getHourlyRate);
   const [basis, setBasis] = useState<RateBasis>(getRateBasis);
+  const [vat, setVat] = useState<string>(() => String(getVatRate()).replace('.', ','));
+
+  const vatNumber = Number(vat.trim().replace(',', '.'));
+  const vatValid = vat.trim() !== '' && Number.isFinite(vatNumber) && vatNumber >= 0 && vatNumber <= 100;
+
+  /** Podgląd: ta sama stawka w netto i brutto. */
+  const preview = useMemo(() => {
+    const rate = Number(hourlyRate.trim().replace(',', '.'));
+    if (!hourlyRate.trim() || !Number.isFinite(rate) || rate <= 0 || !vatValid) return null;
+    return splitAmount(rate, basis, vatNumber);
+  }, [hourlyRate, basis, vatNumber, vatValid]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +48,13 @@ export default function RateTab() {
       showToast('Podaj poprawną kwotę, np. 120 lub 85,50', 'error');
       return;
     }
+    if (!vatValid) {
+      showToast('Stawka VAT musi być liczbą od 0 do 100', 'error');
+      return;
+    }
     saveHourlyRate(value);
     setRateBasis(basis);
+    setVatRate(vatNumber);
     window.dispatchEvent(new Event(RATE_UPDATED_EVENT));
     showToast(value ? `Stawka zapisana (${basis})` : 'Stawka usunięta', value ? 'success' : 'info');
   };
@@ -65,7 +86,7 @@ export default function RateTab() {
         </Field>
 
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="mb-1.5 text-sm font-medium">Kwota jest</legend>
+          <legend className="mb-1.5 text-sm font-medium">Wpisana stawka jest</legend>
           <div
             role="radiogroup"
             className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/40 p-1"
@@ -89,10 +110,45 @@ export default function RateTab() {
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Informacja trafia do podsumowania miesiąca i do raportu PDF.
-          </p>
         </fieldset>
+
+        <Field
+          label="Stawka VAT"
+          htmlFor="vat-rate"
+          hint={`Do przeliczenia netto ↔ brutto. Domyślnie ${DEFAULT_VAT_RATE}%, 0 = bez VAT.`}
+        >
+          <div className="relative w-28">
+            <Input
+              id="vat-rate"
+              inputMode="decimal"
+              value={vat}
+              onChange={(e) => setVat(e.target.value)}
+              aria-invalid={!vatValid}
+              className="tabular pr-8"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              %
+            </span>
+          </div>
+        </Field>
+
+        {preview && (
+          <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border bg-border text-sm">
+            {[
+              { label: 'Netto / h', value: preview.net },
+              { label: `VAT ${String(vatNumber).replace('.', ',')}%`, value: preview.vat },
+              { label: 'Brutto / h', value: preview.gross },
+            ].map((x) => (
+              <div key={x.label} className="bg-card px-3 py-2">
+                <dt className="text-[11px] text-muted-foreground">{x.label}</dt>
+                <dd className="tabular font-semibold">{formatMoney(x.value)}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        <p className="-mt-2 text-xs text-muted-foreground">
+          Podsumowanie miesiąca i raport PDF pokazują kwotę netto, VAT i brutto.
+        </p>
 
         <Button type="submit" className="self-start">
           Zapisz stawkę
