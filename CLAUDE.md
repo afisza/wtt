@@ -41,7 +41,7 @@ MAMP must be running for the PHP API (Apache on :80, MySQL):
 
 - **Entry:** `main.tsx` → `App.tsx` (React Router v7: `/` → HomePage, `/settings` → SettingsPage)
 - **Core hook:** `hooks/useCalendarData.ts` — manages all work-time state for a month/client. Uses `useRef` + save queue to prevent stale-closure race conditions.
-- **Key components:** `CalendarTable` (month view) → `DayRow`/`DayCard` → `TaskList` → `TaskForm`
+- **Key components:** `CalendarTable` (list view) → `DayRow` → `TaskList` → `TaskForm`
 - **Contexts:** `ThemeContext` (dark/light), `ToastContext` (notifications)
 - **Path alias:** `@/*` → `src/*`
 - **UI components in `components/ui/`** are ShadCN — don't edit manually, use `npx shadcn-ui@latest add <component>`
