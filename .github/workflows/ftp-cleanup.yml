@@ -1,0 +1,75 @@
+# Jednorazowe sprzątanie serwera (Actions → FTP cleanup → Run workflow).
+# Przenosi stare pozostałości (wtt-deploy.zip z kodem API, katalog _old/) POZA public_html/,
+# do `_archive-<data>/` w katalogu domeny — znikają z internetu, ale da się je odzyskać.
+# Nic nie jest kasowane. Bez zaznaczenia `apply` tylko listuje, co by przeniósł.
+name: FTP cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Przenieś pliki (bez zaznaczenia: tylko lista)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Move leftovers out of public_html
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq lftp > /dev/null
+          CHAIN="$(mktemp)"
+          cat /etc/ssl/certs/ca-certificates.crt > "${CHAIN}"
+          NEXT="$(echo | openssl s_client -connect "${FTP_SERVER}:21" -starttls ftp 2>/dev/null \
+            | openssl x509 -noout -text 2>/dev/null \
+            | grep -A1 'Authority Information Access' | grep -o 'URI:http[^ ]*' | sed 's/^URI://' | head -1 || true)"
+          for _ in 1 2 3; do
+            [ -n "${NEXT}" ] || break
+            CERT="$(mktemp)"
+            curl -fsS --max-time 20 "${NEXT}" -o "${CERT}" || break
+            openssl x509 -inform DER -in "${CERT}" -outform PEM >> "${CHAIN}" 2>/dev/null || break
+            NEXT="$(openssl x509 -inform DER -in "${CERT}" -noout -text \
+              | grep -A1 'Authority Information Access' | grep -o 'URI:http[^ ]*' | sed 's/^URI://' | head -1 || true)"
+          done
+          COMMON="
+            set cmd:fail-exit true;
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set ssl:check-hostname true;
+            set ssl:ca-file ${CHAIN};
+            set net:max-retries 2;
+            set net:timeout 30;
+            open --env-password -u '${FTP_USERNAME}' '${FTP_SERVER}';
+          "
+          ARCHIVE="_archive-$(date -u +%Y%m%d)"
+          # Stała lista — workflow nie przyjmuje ścieżek z zewnątrz.
+          for item in wtt-deploy.zip _old; do
+            echo "=== public_html/${item} ==="
+            if ! timeout 60 lftp -c "${COMMON} cls -1 -d public_html/${item};" >/dev/null 2>&1; then
+              echo '(nie ma — pomijam)'
+              continue
+            fi
+            timeout 120 lftp -c "${COMMON} find public_html/${item};" 2>&1 | head -200 || true
+            if [ "${APPLY}" = 'true' ]; then
+              timeout 120 lftp -c "${COMMON} mkdir -f ${ARCHIVE}; mv public_html/${item} ${ARCHIVE}/${item};"
+              echo "→ przeniesiono do ${ARCHIVE}/${item} (poza public_html)"
+            fi
+          done
+          echo '=== public_html/ po zmianach ==='
+          timeout 120 lftp -c "${COMMON} cls -1 --sort=name -a public_html/;"
+          if [ "${APPLY}" = 'true' ]; then
+            echo "=== ${ARCHIVE}/ ==="
+            timeout 120 lftp -c "${COMMON} cls -1 -a ${ARCHIVE}/;"
+          fi
