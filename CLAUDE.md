@@ -55,6 +55,19 @@ MAMP must be running for the PHP API (Apache on :80, MySQL):
 - **Storage:** Dual-mode — MySQL primary, JSON fallback (`data/*.json`). `api/storage.php`: `isMySQLAvailable()` returns false if `data/storage-mode.json` says `json` (toggled in Settings via `/settings/storage-mode`) or `data/db-config.json` lacks host/database. JSON read/write helpers live in `api/json-helpers.php`.
 - **TOTP:** `api/totp.php` — pure-PHP TOTP implementation (RFC 6238, no external deps)
 
+### Public API (`/api/v1/*`) — personal API tokens
+
+- `api/api-tokens.php`: tokens `wtt_` + 43 chars, stored only as SHA-256 (`api_tokens` table, auto-created), expiry,
+  revoke, `last_used_at/ip`. `requireApiToken()` reads `Authorization: Bearer` (or `X-Api-Key`), ignores session cookies,
+  rate-limits failures per IP (10/15 min) and use per token (120/h). Tokens can only **add/read** entries + list clients.
+- `api/routes/settings-api-tokens.php` (session auth): list / create (needs password + TOTP if 2FA) / revoke —
+  UI in `src/components/settings/ApiTab.tsx` (Settings → „Dostęp API”).
+- `api/routes/v1-entries.php` (`GET ?date=&client=`, `POST {client, text, minutes|duration, date?, start?, end?, status?}`),
+  `api/routes/v1-clients.php`. Pure helpers (duration parsing, client matching by name/domain, time placement after the
+  day's last entry) in `api/entries-lib.php`, tested by `php tests/php/entries-lib-test.php` (run by release.sh + CI).
+- Both `.htaccess` files forward the `Authorization` header to PHP (FastCGI hosts drop it otherwise).
+- Claude Code client: global skill `~/.claude/skills/wtt-log` (`scripts/wtt.sh`, token in macOS Keychain service `wtt-api`).
+
 ### Database Schema (MySQL)
 
 ```

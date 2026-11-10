@@ -25,6 +25,10 @@ DirectoryIndex index.html
 RewriteEngine On
 RewriteBase /
 
+# Przekaż nagłówek Authorization do PHP (token API w /api/v1/*) — część hostingów (FastCGI) go gubi
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 # ── Force HTTPS ──────────────────────────────────────────────────────────────
 RewriteCond %{HTTPS} off
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

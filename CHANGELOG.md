@@ -2,6 +2,16 @@
 
 Wszystkie istotne zmiany w Afisza Time Tracker. Najnowsza wersja na górze.
 
+## [2.4.0] - 2026-11-10
+
+### Dostęp API — wpisy z Claude Code i skryptów
+- Nowa sekcja Ustawienia → Dostęp API: tworzenie i odwoływanie osobistych tokenów API. Token jest pokazywany tylko raz, a utworzenie go wymaga hasła (i kodu 2FA, jeśli jest włączona).
+- Endpoint `POST /api/v1/entries` dodaje wpis: klient po nazwie lub domenie, czas trwania („3h 27min”), opis, opcjonalnie data i godziny. Bez godzin wpis trafia zaraz po ostatnim wpisie z danego dnia. Do tego `GET /api/v1/entries` (wpisy z dnia) i `GET /api/v1/clients`.
+- Token może tylko dodawać i czytać wpisy. Nie edytuje ani nie usuwa zadań i nie loguje do aplikacji. Ma termin ważności, limit żądań i blokadę po nieudanych próbach. W bazie zapisany jest tylko jego skrót.
+
+### Poprawka
+- Router API wycinał „/api” z każdego miejsca w adresie, nie tylko z początku.
+
 ## [2.3.0] - 2026-11-10
 
 ### Wybór kwot: netto i/lub brutto

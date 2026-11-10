@@ -88,6 +88,7 @@ if [ "${SKIP_PHP:-0}" != "1" ]; then
     PHP_BIN="${PHP_BIN:-/Applications/MAMP/bin/php/php8.2.20/bin/php}"
     [ -x "${PHP_BIN}" ] || PHP_BIN="php"
     find api -name '*.php' -not -path 'api/vendor/*' -print0 | xargs -0 -n1 "${PHP_BIN}" -l >/dev/null
+    for t in tests/php/*-test.php; do "${PHP_BIN}" "$t" >/dev/null || { "${PHP_BIN}" "$t"; exit 1; }; done
 fi
 
 # ── Stempel wersji ───────────────────────────────────────────────────────────

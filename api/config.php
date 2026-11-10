@@ -63,3 +63,13 @@ function checkRateLimit(string $key, int $maxAttempts = 5, int $windowSeconds = 
     @file_put_contents($file, json_encode(array_values($data)));
     return true; // allowed
 }
+
+/** Sprawdza limit bez rejestrowania nowej próby (np. czy IP jest już zablokowane). */
+function isRateLimited(string $key, int $maxAttempts = 5, int $windowSeconds = 900): bool {
+    $file = RATE_LIMIT_DIR . '/' . md5($key) . '.json';
+    if (!file_exists($file)) return false;
+    $now = time();
+    $data = json_decode(file_get_contents($file), true) ?: [];
+    $recent = array_filter($data, fn($ts) => ($now - $ts) < $windowSeconds);
+    return count($recent) >= $maxAttempts;
+}

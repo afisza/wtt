@@ -1,6 +1,15 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Users, UserCheck, Coins, ShieldCheck, Database, Server } from 'lucide-react';
+import {
+  ArrowLeft,
+  Users,
+  UserCheck,
+  Coins,
+  ShieldCheck,
+  KeyRound,
+  Database,
+  Server,
+} from 'lucide-react';
 import { basePath } from '@/lib/apiBase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppShell } from '@/pages/HomePage';
@@ -10,6 +19,7 @@ import RateTab from '@/components/settings/RateTab';
 import AssignersTab from '@/components/settings/AssignersTab';
 import ClientsTab from '@/components/settings/ClientsTab';
 import TwoFactorTab from '@/components/settings/TwoFactorTab';
+import ApiTab from '@/components/settings/ApiTab';
 import { cn } from '@/lib/utils';
 import { appVersion } from '@/lib/version';
 
@@ -20,6 +30,7 @@ const TABS = [
   { id: 'assigners', label: 'Osoby zlecające', icon: UserCheck, Component: AssignersTab },
   { id: 'rate', label: 'Stawka godzinowa', icon: Coins, Component: RateTab },
   { id: '2fa', label: 'Weryfikacja 2FA', icon: ShieldCheck, Component: TwoFactorTab },
+  { id: 'api', label: 'Dostęp API', icon: KeyRound, Component: ApiTab },
   { id: 'config', label: 'Połączenie MySQL', icon: Server, Component: ConfigTab },
   { id: 'info', label: 'Baza danych', icon: Database, Component: InfoTab },
 ] as const;

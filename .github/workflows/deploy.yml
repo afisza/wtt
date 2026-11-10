@@ -94,6 +94,9 @@ jobs:
           find api -name '*.php' -not -path 'api/vendor/*' -print0 \
             | xargs -0 -n1 php -l > /dev/null
 
+      - name: PHP tests
+        run: for t in tests/php/*-test.php; do php "$t"; done
+
       - name: Build frontend
         run: npx vite build
 

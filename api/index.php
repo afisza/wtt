@@ -45,7 +45,8 @@ $uri = $_SERVER['REQUEST_URI'];
 $basePath = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/api/index.php')), '/');
 if ($basePath === '' || $basePath === '.') $basePath = '/api';
 $path = parse_url($uri, PHP_URL_PATH);
-$route = str_replace($basePath, '', $path);
+// Usuwamy tylko prefiks (str_replace wyciąłby też "/api" ze środka, np. w "/settings/api-tokens")
+$route = str_starts_with($path, $basePath . '/') ? substr($path, strlen($basePath)) : $path;
 $route = rtrim($route, '/');
 if ($route === '') $route = '/';
 
@@ -74,6 +75,10 @@ $routes = [
     '/settings/storage-mode' => 'settings-storage-mode.php',
     '/settings/migrate-json-to-mysql' => 'settings-migrate.php',
     '/settings/fix-december-dates' => 'settings-fix-dates.php',
+    '/settings/api-tokens' => 'settings-api-tokens.php',
+    // Publiczne API dla skryptów / Claude Code — wyłącznie token API (Authorization: Bearer wtt_…)
+    '/v1/entries' => 'v1-entries.php',
+    '/v1/clients' => 'v1-clients.php',
     '/version/changelog' => 'version.php',
     '/health' => 'health.php',
 ];
