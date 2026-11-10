@@ -7,6 +7,7 @@ import {
   Coins,
   ShieldCheck,
   KeyRound,
+  Send,
   Database,
   Server,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import AssignersTab from '@/components/settings/AssignersTab';
 import ClientsTab from '@/components/settings/ClientsTab';
 import TwoFactorTab from '@/components/settings/TwoFactorTab';
 import ApiTab from '@/components/settings/ApiTab';
+import TelegramTab from '@/components/settings/TelegramTab';
 import { cn } from '@/lib/utils';
 import { appVersion } from '@/lib/version';
 
@@ -31,6 +33,7 @@ const TABS = [
   { id: 'rate', label: 'Stawka godzinowa', icon: Coins, Component: RateTab },
   { id: '2fa', label: 'Weryfikacja 2FA', icon: ShieldCheck, Component: TwoFactorTab },
   { id: 'api', label: 'Dostęp API', icon: KeyRound, Component: ApiTab },
+  { id: 'telegram', label: 'Telegram', icon: Send, Component: TelegramTab },
   { id: 'config', label: 'Połączenie MySQL', icon: Server, Component: ConfigTab },
   { id: 'info', label: 'Baza danych', icon: Database, Component: InfoTab },
 ] as const;

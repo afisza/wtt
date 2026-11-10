@@ -76,6 +76,9 @@ $routes = [
     '/settings/migrate-json-to-mysql' => 'settings-migrate.php',
     '/settings/fix-december-dates' => 'settings-fix-dates.php',
     '/settings/api-tokens' => 'settings-api-tokens.php',
+    '/settings/telegram' => 'settings-telegram.php',
+    // Webhook bota Telegram — uwierzytelniany nagłówkiem X-Telegram-Bot-Api-Secret-Token
+    '/telegram/webhook' => 'telegram-webhook.php',
     // Publiczne API dla skryptów / Claude Code — wyłącznie token API (Authorization: Bearer wtt_…)
     '/v1/entries' => 'v1-entries.php',
     '/v1/clients' => 'v1-clients.php',

@@ -2,6 +2,13 @@
 
 Wszystkie istotne zmiany w Afisza Time Tracker. Najnowsza wersja na górze.
 
+## [2.5.0] - 2026-11-10
+
+### Bot Telegram — wpisy głosówką
+- Nowa sekcja Ustawienia → Telegram: podłączasz własnego bota (token z @BotFather), klucz ElevenLabs i klucz Anthropic, a potem łączysz swoje konto Telegram jednorazowym linkiem.
+- Głosówkę rozpoznaje ElevenLabs Scribe v2 (polski, ukraiński, rosyjski, angielski). Claude zamienia ją na wpis: klient, data, godziny lub czas trwania i opis po polsku. Przed zapisem bot pokazuje podsumowanie z przyciskami „Zapisz” / „Anuluj”, a poprawkę wystarczy wysłać kolejną wiadomością.
+- Bot odpowiada tylko na połączone konto. Webhook jest chroniony sekretem, a klucze są zaszyfrowane w bazie. Komenda /dzis pokazuje wpisy z dzisiaj.
+
 ## [2.4.0] - 2026-11-10
 
 ### Dostęp API — wpisy z Claude Code i skryptów

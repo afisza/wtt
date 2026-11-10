@@ -68,6 +68,17 @@ MAMP must be running for the PHP API (Apache on :80, MySQL):
 - Both `.htaccess` files forward the `Authorization` header to PHP (FastCGI hosts drop it otherwise).
 - Claude Code client: global skill `~/.claude/skills/wtt-log` (`scripts/wtt.sh`, token in macOS Keychain service `wtt-api`).
 
+### Telegram bot (voice → entries)
+
+- `api/telegram.php` (lib), `api/routes/telegram-webhook.php` (`POST /api/telegram/webhook`, auth = header
+  `X-Telegram-Bot-Api-Secret-Token`, SHA-256 in `telegram_integrations.webhook_secret_hash`; answers 200 then works after
+  `fastcgi_finish_request`), `api/routes/settings-telegram.php` (session; save keys → `getMe` + `setWebhook`; one-time
+  `t.me/<bot>?start=<code>` link pins the Telegram user). UI: `src/components/settings/TelegramTab.tsx`.
+- Flow: voice → `getFile` → ElevenLabs Scribe v2 (auto language) → Claude Haiku 5.5 via `anthropic-ai/sdk` (+ Guzzle as PSR-18)
+  with `json_schema` output → `telegram_pending` → inline ✅/❌ → `createEntry()` in `api/entries-service.php` (shared with `/v1`).
+- Per-user keys (bot, ElevenLabs, Anthropic) encrypted with libsodium secretbox, key derived from `data/.jwt-secret`
+  (`api/secret-box.php`) — rotating that secret means re-entering the keys.
+
 ### Database Schema (MySQL)
 
 ```

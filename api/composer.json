@@ -9,7 +9,9 @@
         }
     ],
     "require": {
-        "firebase/php-jwt": "^6.0"
+        "firebase/php-jwt": "^6.0",
+        "anthropic-ai/sdk": "^1.8",
+        "guzzlehttp/guzzle": "^8.3"
     },
     "config": {
         "audit": {
