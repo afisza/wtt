@@ -38,5 +38,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Testy tylko z frontendu — api/vendor (pakiety Composera) zawiera cudze pliki *.test.ts
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
   },
 });
