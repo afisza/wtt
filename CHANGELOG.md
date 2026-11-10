@@ -2,6 +2,15 @@
 
 Wszystkie istotne zmiany w Afisza Time Tracker. Najnowsza wersja na górze.
 
+## [2.3.0] - 2026-11-10
+
+### Wybór kwot: netto i/lub brutto
+- W Ustawieniach → Stawka godzinowa są dwa pola: „Pokaż kwotę netto” i „Pokaż kwotę brutto”. Zaznaczone kwoty widać w kalendarzu (podsumowanie miesiąca, wiersz „Razem”) i w raporcie PDF.
+- Obie zaznaczone: netto, VAT i brutto jak dotąd. Jedna: tylko ona (w PDF jako kwota do zapłaty). Żadna: kwoty są ukryte.
+
+### Kwota bez VAT
+- Gdy pole „Stawka VAT” jest puste albo ma 0, netto = brutto, więc pokazujemy jedną kwotę.
+
 ## [2.2.0] - 2026-11-09
 
 ### Kwoty netto i brutto

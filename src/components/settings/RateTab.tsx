@@ -6,17 +6,22 @@ import {
   DEFAULT_VAT_RATE,
   getHourlyRate,
   getRateBasis,
+  getShowGross,
+  getShowNet,
   getVatRate,
   RATE_UPDATED_EVENT,
   setHourlyRate as saveHourlyRate,
   setRateBasis,
+  setShowAmounts,
   setVatRate,
   splitAmount,
+  visibleAmounts,
   type RateBasis,
 } from '@/lib/rate';
 import { formatMoney } from '@/lib/reportSummary';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import SettingsSection, { Field } from './SettingsSection';
 
@@ -30,9 +35,13 @@ export default function RateTab() {
   const [hourlyRate, setHourlyRate] = useState<string>(getHourlyRate);
   const [basis, setBasis] = useState<RateBasis>(getRateBasis);
   const [vat, setVat] = useState<string>(() => String(getVatRate()).replace('.', ','));
+  const [showNet, setShowNet] = useState<boolean>(getShowNet);
+  const [showGross, setShowGross] = useState<boolean>(getShowGross);
 
-  const vatNumber = Number(vat.trim().replace(',', '.'));
-  const vatValid = vat.trim() !== '' && Number.isFinite(vatNumber) && vatNumber >= 0 && vatNumber <= 100;
+  // Puste pole = 0 = bez VAT (pokazujemy tylko kwotę brutto).
+  const vatNumber = vat.trim() === '' ? 0 : Number(vat.trim().replace(',', '.'));
+  const vatValid = Number.isFinite(vatNumber) && vatNumber >= 0 && vatNumber <= 100;
+  const show = visibleAmounts(showNet, showGross, vatValid ? vatNumber : 0);
 
   /** Podgląd: ta sama stawka w netto i brutto. */
   const preview = useMemo(() => {
@@ -55,6 +64,7 @@ export default function RateTab() {
     saveHourlyRate(value);
     setRateBasis(basis);
     setVatRate(vatNumber);
+    setShowAmounts(showNet, showGross);
     window.dispatchEvent(new Event(RATE_UPDATED_EVENT));
     showToast(value ? `Stawka zapisana (${basis})` : 'Stawka usunięta', value ? 'success' : 'info');
   };
@@ -115,7 +125,7 @@ export default function RateTab() {
         <Field
           label="Stawka VAT"
           htmlFor="vat-rate"
-          hint={`Do przeliczenia netto ↔ brutto. Domyślnie ${DEFAULT_VAT_RATE}%, 0 = bez VAT.`}
+          hint={`Domyślnie ${DEFAULT_VAT_RATE}%. Puste lub 0 = bez VAT (netto = brutto).`}
         >
           <div className="relative w-28">
             <Input
@@ -132,26 +142,65 @@ export default function RateTab() {
           </div>
         </Field>
 
-        {preview && (
-          <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border bg-border text-sm">
+        <fieldset className="flex flex-col gap-2.5">
+          <legend className="mb-1.5 text-sm font-medium">Kwota w kalendarzu i raporcie PDF</legend>
+          {[
+            { id: 'show-net', label: 'Pokaż kwotę netto', checked: showNet, set: setShowNet },
+            {
+              id: 'show-gross',
+              label: 'Pokaż kwotę brutto',
+              checked: showGross,
+              set: setShowGross,
+            },
+          ].map((o) => (
+            <label
+              key={o.id}
+              htmlFor={o.id}
+              className="flex cursor-pointer items-center gap-2.5 text-sm"
+            >
+              <Checkbox id={o.id} checked={o.checked} onCheckedChange={(v) => o.set(v === true)} />
+              {o.label}
+            </label>
+          ))}
+        </fieldset>
+
+        {preview && show.any && (
+          <dl className="grid auto-cols-fr grid-flow-col gap-px overflow-hidden rounded-lg border bg-border text-sm">
             {[
-              { label: 'Netto / h', value: preview.net },
-              { label: `VAT ${String(vatNumber).replace('.', ',')}%`, value: preview.vat },
-              { label: 'Brutto / h', value: preview.gross },
-            ].map((x) => (
-              <div key={x.label} className="bg-card px-3 py-2">
-                <dt className="text-[11px] text-muted-foreground">{x.label}</dt>
-                <dd className="tabular font-semibold">{formatMoney(x.value)}</dd>
-              </div>
-            ))}
+              show.net && {
+                label: vatNumber > 0 ? 'Netto / h' : 'Netto / h (bez VAT)',
+                value: preview.net,
+              },
+              show.vat && {
+                label: `VAT ${String(vatNumber).replace('.', ',')}%`,
+                value: preview.vat,
+              },
+              show.gross && {
+                label: vatNumber > 0 ? 'Brutto / h' : 'Brutto / h (bez VAT)',
+                value: preview.gross,
+              },
+            ]
+              .filter((x): x is { label: string; value: number } => !!x)
+              .map((x) => (
+                <div key={x.label} className="bg-card px-3 py-2">
+                  <dt className="text-[11px] text-muted-foreground">{x.label}</dt>
+                  <dd className="tabular font-semibold">{formatMoney(x.value)}</dd>
+                </div>
+              ))}
           </dl>
         )}
         <p className="-mt-2 text-xs text-muted-foreground">
-          Podsumowanie miesiąca i raport PDF pokazują kwotę netto, VAT i brutto.
+          {!show.any
+            ? 'Kwoty są ukryte w kalendarzu i w raporcie PDF.'
+            : show.vat
+              ? 'Kalendarz i raport PDF pokazują kwotę netto, VAT i brutto.'
+              : `Kalendarz i raport PDF pokazują tylko kwotę ${show.gross ? 'brutto' : 'netto'}${
+                  show.gross && showNet && !(vatNumber > 0) ? ' (bez VAT netto = brutto)' : ''
+                }.`}
         </p>
 
         <Button type="submit" className="self-start">
-          Zapisz stawkę
+          Zapisz ustawienia
         </Button>
       </form>
     </SettingsSection>

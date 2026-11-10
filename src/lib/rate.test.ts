@@ -2,11 +2,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   getHourlyRate,
   getRateBasis,
+  getShowGross,
+  getShowNet,
   getVatRate,
   setHourlyRate,
   setRateBasis,
+  setShowAmounts,
   setVatRate,
   splitAmount,
+  visibleAmounts,
 } from './rate';
 
 describe('stawka godzinowa', () => {
@@ -46,6 +50,8 @@ describe('netto / VAT / brutto', () => {
     expect(getVatRate()).toBe(8);
     setVatRate(0);
     expect(getVatRate()).toBe(0);
+    localStorage.setItem('hourlyRateVat', '');
+    expect(getVatRate()).toBe(0);
   });
 
   it('z brutto: brutto bez zmian, netto + VAT = brutto', () => {
@@ -56,5 +62,54 @@ describe('netto / VAT / brutto', () => {
   it('z netto: netto bez zmian, brutto = netto + VAT', () => {
     expect(splitAmount(100, 'netto', 23)).toEqual({ net: 100, vat: 23, gross: 123 });
     expect(splitAmount(100, 'netto', 0)).toEqual({ net: 100, vat: 0, gross: 100 });
+  });
+});
+
+describe('widoczność kwot netto / brutto', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('domyślnie obie kwoty zaznaczone, zapis się utrzymuje', () => {
+    expect(getShowNet()).toBe(true);
+    expect(getShowGross()).toBe(true);
+    setShowAmounts(false, true);
+    expect(getShowNet()).toBe(false);
+    expect(getShowGross()).toBe(true);
+  });
+
+  it('z VAT: obie → netto + VAT + brutto; jedna → tylko ona', () => {
+    expect(visibleAmounts(true, true, 23)).toEqual({
+      net: true,
+      vat: true,
+      gross: true,
+      any: true,
+    });
+    expect(visibleAmounts(true, false, 23)).toEqual({
+      net: true,
+      vat: false,
+      gross: false,
+      any: true,
+    });
+    expect(visibleAmounts(false, true, 23)).toEqual({
+      net: false,
+      vat: false,
+      gross: true,
+      any: true,
+    });
+  });
+
+  it('bez VAT obie zaznaczone → jedna kwota (brutto); nic → kwoty ukryte', () => {
+    expect(visibleAmounts(true, true, 0)).toEqual({
+      net: false,
+      vat: false,
+      gross: true,
+      any: true,
+    });
+    expect(visibleAmounts(true, false, 0)).toEqual({
+      net: true,
+      vat: false,
+      gross: false,
+      any: true,
+    });
+    expect(visibleAmounts(false, false, 23).any).toBe(false);
   });
 });

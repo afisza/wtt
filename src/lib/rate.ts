@@ -7,6 +7,8 @@ export type RateBasis = 'netto' | 'brutto';
 const RATE_KEY = 'hourlyRate';
 const BASIS_KEY = 'hourlyRateBasis';
 const VAT_KEY = 'hourlyRateVat';
+const SHOW_NET_KEY = 'hourlyRateShowNet';
+const SHOW_GROSS_KEY = 'hourlyRateShowGross';
 export const RATE_UPDATED_EVENT = 'hourlyRateUpdated';
 
 /** Domyślnie: 80 zł brutto za godzinę — dopóki użytkownik nie ustawi własnej stawki. */
@@ -29,7 +31,11 @@ export function setHourlyRate(value: string): void {
 }
 
 export const isRateKey = (key: string | null) =>
-  key === RATE_KEY || key === BASIS_KEY || key === VAT_KEY;
+  key === RATE_KEY ||
+  key === BASIS_KEY ||
+  key === VAT_KEY ||
+  key === SHOW_NET_KEY ||
+  key === SHOW_GROSS_KEY;
 
 export function getRateBasis(): RateBasis {
   const v = storage.get(BASIS_KEY);
@@ -40,16 +46,53 @@ export function setRateBasis(basis: RateBasis): void {
   storage.set(BASIS_KEY, basis);
 }
 
-/** Stawka VAT w % (0–100). Brak / niepoprawny wpis = 23. */
+/**
+ * Stawka VAT w % (0–100). Brak wpisu / niepoprawny wpis = 23. Puste pole w ustawieniach = 0,
+ * czyli bez VAT: wtedy aplikacja i raport pokazują tylko jedną kwotę (brutto).
+ */
 export function getVatRate(): number {
   const raw = storage.get(VAT_KEY);
-  if (raw === null || raw.trim() === '') return DEFAULT_VAT_RATE;
+  if (raw === null) return DEFAULT_VAT_RATE;
+  if (raw.trim() === '') return 0;
   const v = Number(raw.replace(',', '.'));
   return Number.isFinite(v) && v >= 0 && v <= 100 ? v : DEFAULT_VAT_RATE;
 }
 
+/** Bez VAT → jedna kwota zamiast netto / VAT / brutto. */
+export const hasVat = (vatRate: number) => vatRate > 0;
+
 export function setVatRate(value: number): void {
   storage.set(VAT_KEY, String(value));
+}
+
+/** Checkboxy „Pokaż kwotę netto / brutto”. Brak wpisu = zaznaczone (dotychczasowe zachowanie). */
+export const getShowNet = () => storage.get(SHOW_NET_KEY) !== '0';
+export const getShowGross = () => storage.get(SHOW_GROSS_KEY) !== '0';
+export function setShowAmounts(showNet: boolean, showGross: boolean): void {
+  storage.set(SHOW_NET_KEY, showNet ? '1' : '0');
+  storage.set(SHOW_GROSS_KEY, showGross ? '1' : '0');
+}
+
+export interface VisibleAmounts {
+  net: boolean;
+  vat: boolean;
+  gross: boolean;
+  /** Czy jakakolwiek kwota jest widoczna. */
+  any: boolean;
+}
+
+/**
+ * Które kwoty pokazać w kalendarzu i raporcie. Bez VAT netto = brutto, więc przy obu zaznaczonych
+ * zostaje jedna kwota (brutto). VAT pokazujemy tylko obok obu kwot (netto + VAT = brutto).
+ */
+export function visibleAmounts(
+  showNet: boolean,
+  showGross: boolean,
+  vatRate: number,
+): VisibleAmounts {
+  const net = showNet && (hasVat(vatRate) || !showGross);
+  const gross = showGross;
+  return { net, gross, vat: net && gross && hasVat(vatRate), any: net || gross };
 }
 
 export interface AmountBreakdown {
@@ -83,11 +126,18 @@ export const basisDescription = (b: RateBasis) =>
 export interface RateSettings {
   basis: RateBasis;
   vatRate: number;
+  showNet: boolean;
+  showGross: boolean;
 }
 
-const readSettings = (): RateSettings => ({ basis: getRateBasis(), vatRate: getVatRate() });
+const readSettings = (): RateSettings => ({
+  basis: getRateBasis(),
+  vatRate: getVatRate(),
+  showNet: getShowNet(),
+  showGross: getShowGross(),
+});
 
-/** Podstawa kwoty i VAT; odświeża się po zapisie w ustawieniach i zmianie w innej karcie. */
+/** Podstawa kwoty, VAT i widoczne kwoty; odświeża się po zapisie w ustawieniach i zmianie w innej karcie. */
 export function useRateSettings(): RateSettings {
   const [settings, setSettings] = useState<RateSettings>(readSettings);
   useEffect(() => {

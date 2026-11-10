@@ -5,7 +5,7 @@ import { useCalendarData, type TasksUpdater } from '@/hooks/useCalendarData';
 import { DraftScopeContext } from '@/lib/drafts';
 import { calculateTotalHours, DAY_NAMES } from '@/lib/tasks';
 import { storage } from '@/lib/storage';
-import { splitAmount, useRateSettings } from '@/lib/rate';
+import { hasVat, splitAmount, useRateSettings, visibleAmounts } from '@/lib/rate';
 import { formatMoney } from '@/lib/reportSummary';
 import { useToast } from '@/contexts/ToastContext';
 import CalendarHeader from '@/components/calendar/CalendarHeader';
@@ -55,8 +55,11 @@ export default function CalendarTable({
     goToToday,
     goToMonth,
   } = useCalendarData(clientId);
-  const { basis: rateBasis, vatRate } = useRateSettings();
-  const amount = totalAmount ? splitAmount(Number(totalAmount), rateBasis, vatRate) : null;
+  const { basis: rateBasis, vatRate, showNet, showGross } = useRateSettings();
+  const show = visibleAmounts(showNet, showGross, vatRate);
+  const amount =
+    totalAmount && show.any ? splitAmount(Number(totalAmount), rateBasis, vatRate) : null;
+  const withVat = hasVat(vatRate);
   const [view, setView] = useState<CalendarView>(() => {
     const v = storage.get(VIEW_KEY) as CalendarView | null;
     return v && VIEWS.some((x) => x.id === v) ? v : 'list';
@@ -167,21 +170,30 @@ export default function CalendarTable({
           <dt className="text-xs text-muted-foreground">Suma godzin</dt>
           <dd className="tabular font-display text-xl font-semibold">{monthTotal}</dd>
         </div>
-        {amount && (
-          <>
-            <div>
-              <dt className="text-xs text-muted-foreground">Netto</dt>
-              <dd className="tabular font-display text-xl font-semibold">
-                {formatMoney(amount.net)}
-              </dd>
-            </div>
-            <div title={`VAT ${vatRate}%: ${formatMoney(amount.vat)}`}>
-              <dt className="text-xs text-muted-foreground">Brutto · VAT {vatRate}%</dt>
-              <dd className="tabular font-display text-xl font-semibold text-highlight-ink">
-                {formatMoney(amount.gross)}
-              </dd>
-            </div>
-          </>
+        {amount && show.net && (
+          <div>
+            <dt className="text-xs text-muted-foreground">
+              {show.gross ? 'Netto' : withVat ? 'Kwota netto · bez VAT' : 'Kwota netto'}
+            </dt>
+            <dd
+              className={cn(
+                'tabular font-display text-xl font-semibold',
+                !show.gross && 'text-highlight-ink',
+              )}
+            >
+              {formatMoney(amount.net)}
+            </dd>
+          </div>
+        )}
+        {amount && show.gross && (
+          <div title={withVat ? `VAT ${vatRate}%: ${formatMoney(amount.vat)}` : undefined}>
+            <dt className="text-xs text-muted-foreground">
+              {withVat ? `Brutto · VAT ${vatRate}%` : 'Kwota brutto'}
+            </dt>
+            <dd className="tabular font-display text-xl font-semibold text-highlight-ink">
+              {formatMoney(amount.gross)}
+            </dd>
+          </div>
         )}
       </dl>
     </CalendarHeader>
@@ -341,7 +353,12 @@ export default function CalendarTable({
               </span>
               <span className="hidden text-right text-sm text-muted-foreground md:block">
                 {amount &&
-                  `${formatMoney(amount.net)} netto · ${formatMoney(amount.gross)} brutto`}
+                  [
+                    show.net && `${formatMoney(amount.net)} netto`,
+                    show.gross && `${formatMoney(amount.gross)} brutto`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
               </span>
               <span className="tabular text-right font-display text-lg font-semibold">
                 {monthTotal}

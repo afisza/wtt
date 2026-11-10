@@ -3,7 +3,7 @@ import { FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/contexts/ToastContext';
 import { storage } from '@/lib/storage';
-import { getHourlyRate, getRateBasis, getVatRate } from '@/lib/rate';
+import { getHourlyRate, getRateBasis, getShowGross, getShowNet, getVatRate } from '@/lib/rate';
 import type { DayData } from '@/hooks/useCalendarData';
 
 interface PdfExportButtonProps {
@@ -42,6 +42,8 @@ export default function PdfExportButton({
         hourlyRate: getHourlyRate(),
         rateBasis: getRateBasis(),
         vatRate: getVatRate(),
+        showNet: getShowNet(),
+        showGross: getShowGross(),
       });
     } catch (e) {
       console.error('PDF generation failed', e);
