@@ -2,6 +2,16 @@
 
 Wszystkie istotne zmiany w Afisza Time Tracker. Najnowsza wersja na górze.
 
+## [2.6.0] - 2026-11-10
+
+### Bot Telegram — osoba zlecająca
+- Bot rozpoznaje, kto zlecił zadanie („zadanie od Aliny”, „zlecił Kiril”), i przypisuje osobę z listy Osób. Pasuje pełna nazwa, samo imię lub inna odmiana.
+- W Ustawieniach → Telegram można wybrać domyślną osobę zlecającą. Dostaje ją wpis, w którym nikogo nie wskazano.
+- `POST /api/v1/entries` przyjmuje pole `assignedBy` (imię lub lista imion).
+
+### Poprawka
+- Gdy Claude zwróci błąd, bot pokazuje jego przyczynę, np. odrzucony klucz, brak środków lub brak połączenia, zamiast ogólnego komunikatu.
+
 ## [2.5.0] - 2026-11-10
 
 ### Bot Telegram — wpisy głosówką

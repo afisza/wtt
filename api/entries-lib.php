@@ -160,3 +160,39 @@ function resolveEntryDate($value, ?int $now = null): ?string {
     if (!checkdate((int)$m[2], (int)$m[3], (int)$m[1])) return null;
     return $v;
 }
+
+/** Klucz porównania imion: małe litery, bez polskich znaków i nadmiarowych spacji. */
+function normalizePersonKey(string $value): string {
+    $v = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $value)));
+    return strtr($v, ['ą' => 'a', 'ć' => 'c', 'ę' => 'e', 'ł' => 'l', 'ń' => 'n', 'ó' => 'o', 'ś' => 's', 'ź' => 'z', 'ż' => 'z']);
+}
+
+/**
+ * Dopasowuje podane osoby zlecające do listy osób użytkownika.
+ * Pasuje pełna nazwa albo jednoznaczne pierwsze słowo („Alina” → „Alina Kowalska”).
+ *
+ * @param string[] $known nazwy osób użytkownika (tabela assigners)
+ * @param mixed $requested tablica nazw albo pojedyncza nazwa
+ * @return array{names: string[], unknown: string[]} names = nazwy kanoniczne bez duplikatów
+ */
+function matchAssigners(array $known, $requested): array {
+    $list = is_array($requested) ? $requested : (($requested === null || $requested === '') ? [] : [$requested]);
+    $names = [];
+    $unknown = [];
+    foreach ($list as $raw) {
+        if (!is_scalar($raw)) continue;
+        $key = normalizePersonKey((string)$raw);
+        if ($key === '') continue;
+        $hit = null;
+        foreach ($known as $k) {
+            if (normalizePersonKey($k) === $key) { $hit = $k; break; }
+        }
+        if ($hit === null) {
+            $byFirst = array_values(array_filter($known, fn($k) => explode(' ', normalizePersonKey($k))[0] === $key));
+            if (count($byFirst) === 1) $hit = $byFirst[0];
+        }
+        if ($hit === null) $unknown[] = trim((string)$raw);
+        elseif (!in_array($hit, $names, true)) $names[] = $hit;
+    }
+    return ['names' => $names, 'unknown' => $unknown];
+}

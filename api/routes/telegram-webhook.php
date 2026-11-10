@@ -152,6 +152,9 @@ function telegramProposeEntries(PDO $pdo, array $integration, string $botToken, 
         return;
     }
     $clientsById = array_column($clients, null, 'id');
+    $assigners = entryUserAssigners($pdo, $userId);
+    // Domyślna osoba zlecająca (Ustawienia → Telegram), gdy w wiadomości nikt nie został wskazany
+    $defaultAssigner = matchAssigners($assigners, $integration['default_assigner'] ?? null)['names'];
 
     // Odpowiedź na wcześniejsze pytanie bota albo poprawka propozycji → przekazujemy kontekst
     $context = null;
@@ -160,10 +163,10 @@ function telegramProposeEntries(PDO $pdo, array $integration, string $botToken, 
     if ($prev) $context = $prev['context'] ?? null;
 
     try {
-        $result = extractEntriesWithClaude($anthropicKey, $text, $clients, $context);
+        $result = extractEntriesWithClaude($anthropicKey, $text, $clients, $assigners, $context);
     } catch (Throwable $e) {
-        error_log('[telegram] claude: ' . $e->getMessage());
-        telegramSend($botToken, $chatId, '⚠️ Nie udało się przetworzyć wiadomości (Claude). Spróbuj za chwilę.');
+        error_log('[telegram] claude: ' . get_class($e) . ': ' . $e->getMessage());
+        telegramSend($botToken, $chatId, '⚠️ Nie udało się przetworzyć wiadomości (Claude): ' . telegramClaudeErrorText($e));
         return;
     }
 
@@ -175,6 +178,8 @@ function telegramProposeEntries(PDO $pdo, array $integration, string $botToken, 
             continue;
         }
         if (!$e['minutes'] && !($e['start'] && $e['end'])) continue;
+        // Tylko osoby z listy; nikt nie wskazany → domyślna osoba
+        $e['assigned_by'] = matchAssigners($assigners, $e['assigned_by'] ?? [])['names'] ?: $defaultAssigner;
         $entries[] = $e;
     }
     $newContext = trim(($context ? $context . "\n" : '') . "Użytkownik: {$text}");
@@ -241,11 +246,12 @@ function telegramHandleCallback(PDO $pdo, array $integration, string $botToken, 
             'end' => $e['end'],
             'minutes' => $e['minutes'],
             'text' => $e['text'],
+            'assignedBy' => $e['assigned_by'] ?? [],
         ]);
         $b = $res['body'];
         if ($res['status'] === 201) {
             $en = $b['entry'];
-            $lines[] = "✅ {$en['client']} · " . telegramFormatDate($en['date']) . " · {$en['start']}–{$en['end']} ({$en['duration']})\n  {$en['text']}\n  Suma dnia u klienta: {$b['clientDayTotal']}";
+            $lines[] = "✅ {$en['client']} · " . telegramFormatDate($en['date']) . " · {$en['start']}–{$en['end']} ({$en['duration']})\n  {$en['text']}" . ($en['assignedBy'] ? "\n  Zlecił(a): " . implode(', ', $en['assignedBy']) : '') . "\n  Suma dnia u klienta: {$b['clientDayTotal']}";
         } elseif (!empty($b['duplicate'])) {
             $lines[] = "ℹ️ Już zapisane wcześniej: {$e['text']}";
         } else {

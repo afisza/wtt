@@ -6,6 +6,7 @@
  *   POST   /api/settings/telegram {botToken?, elevenlabsKey?, anthropicKey?}
  *                                                → zapis kluczy; nowy token bota = weryfikacja getMe + setWebhook
  *   POST   /api/settings/telegram {action:"link"} → jednorazowy link t.me/<bot>?start=<kod> (ważny 15 min)
+ *   POST   /api/settings/telegram {defaultAssigner} → domyślna osoba zlecająca (null = brak)
  *   DELETE /api/settings/telegram                → odłącza bota (deleteWebhook) i usuwa klucze
  */
 require_once __DIR__ . '/../auth.php';
@@ -27,6 +28,8 @@ function telegramStatus(PDO $pdo, int $userId): array {
         'hasAnthropicKey' => !empty($row['anthropic_key_enc']),
         'linked' => !empty($row['tg_user_id']),
         'linkedName' => $row['tg_name'] ?? null,
+        'defaultAssigner' => $row['default_assigner'] ?? null,
+        'assigners' => entryUserAssigners($pdo, $userId),
     ];
 }
 
@@ -48,6 +51,17 @@ if ($method === 'POST') {
             'UPDATE telegram_integrations SET link_code_hash = ?, link_code_expires = (NOW() + INTERVAL 15 MINUTE), tg_user_id = NULL, tg_chat_id = NULL, tg_name = NULL WHERE user_id = ?'
         )->execute([hash('sha256', $code), $userId]);
         jsonResponse(['url' => "https://t.me/{$row['bot_username']}?start={$code}"] + telegramStatus($pdo, $userId));
+    }
+
+    if (array_key_exists('defaultAssigner', $body)) {
+        if (!$row) jsonResponse(['error' => 'Najpierw zapisz token bota'], 400);
+        $name = null;
+        if ($body['defaultAssigner'] !== null && $body['defaultAssigner'] !== '') {
+            $name = matchAssigners(entryUserAssigners($pdo, $userId), (string)$body['defaultAssigner'])['names'][0] ?? null;
+            if ($name === null) jsonResponse(['error' => 'Nie ma takiej osoby'], 400);
+        }
+        $pdo->prepare('UPDATE telegram_integrations SET default_assigner = ? WHERE user_id = ?')->execute([$name, $userId]);
+        jsonResponse(telegramStatus($pdo, $userId));
     }
 
     $botToken = trim((string)($body['botToken'] ?? ''));

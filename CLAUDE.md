@@ -62,7 +62,7 @@ MAMP must be running for the PHP API (Apache on :80, MySQL):
   rate-limits failures per IP (10/15 min) and use per token (120/h). Tokens can only **add/read** entries + list clients.
 - `api/routes/settings-api-tokens.php` (session auth): list / create (needs password + TOTP if 2FA) / revoke —
   UI in `src/components/settings/ApiTab.tsx` (Settings → „Dostęp API”).
-- `api/routes/v1-entries.php` (`GET ?date=&client=`, `POST {client, text, minutes|duration, date?, start?, end?, status?}`),
+- `api/routes/v1-entries.php` (`GET ?date=&client=`, `POST {client, text, minutes|duration, date?, start?, end?, status?, assignedBy?}`),
   `api/routes/v1-clients.php`. Pure helpers (duration parsing, client matching by name/domain, time placement after the
   day's last entry) in `api/entries-lib.php`, tested by `php tests/php/entries-lib-test.php` (run by release.sh + CI).
 - Both `.htaccess` files forward the `Authorization` header to PHP (FastCGI hosts drop it otherwise).
@@ -76,6 +76,8 @@ MAMP must be running for the PHP API (Apache on :80, MySQL):
   `t.me/<bot>?start=<code>` link pins the Telegram user). UI: `src/components/settings/TelegramTab.tsx`.
 - Flow: voice → `getFile` → ElevenLabs Scribe v2 (auto language) → Claude Haiku 5.5 via `anthropic-ai/sdk` (+ Guzzle as PSR-18)
   with `json_schema` output → `telegram_pending` → inline ✅/❌ → `createEntry()` in `api/entries-service.php` (shared with `/v1`).
+- Assigners: Claude returns `assigned_by` names from the user's `assigners`; `matchAssigners()` (entries-lib) validates them;
+  none → `telegram_integrations.default_assigner` (set in TelegramTab). `tasks.assigned_by` = JSON array of names.
 - Per-user keys (bot, ElevenLabs, Anthropic) encrypted with libsodium secretbox, key derived from `data/.jwt-secret`
   (`api/secret-box.php`) — rotating that secret means re-entering the keys.
 

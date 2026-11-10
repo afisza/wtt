@@ -5,6 +5,13 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -24,7 +31,11 @@ interface TelegramStatus {
   hasAnthropicKey: boolean;
   linked: boolean;
   linkedName: string | null;
+  defaultAssigner: string | null;
+  assigners: string[];
 }
+
+const NO_ASSIGNER = '__none__';
 
 async function call(init: RequestInit = {}) {
   const res = await apiFetch('/api/settings/telegram', {
@@ -143,6 +154,17 @@ export default function TelegramTab() {
       setStatus(await call({ method: 'DELETE' }));
       setLinkUrl(null);
       setMessage('Bot odłączony, klucze usunięte.');
+    });
+
+  const handleDefaultAssigner = (value: string) =>
+    void run(async () => {
+      setStatus(
+        await call({
+          method: 'POST',
+          body: JSON.stringify({ defaultAssigner: value === NO_ASSIGNER ? null : value }),
+        }),
+      );
+      setMessage('Zapisano domyślną osobę.');
     });
 
   const savedHint = 'Zapisany — zostaw puste, aby nie zmieniać';
@@ -304,6 +326,29 @@ export default function TelegramTab() {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
+              <Field
+                label="Domyślna osoba zlecająca"
+                htmlFor="tg-default-assigner"
+                hint="Gdy powiesz np. „zadanie od Aliny”, bot wybierze tę osobę z listy Osób. Jeśli nikogo nie wskażesz, wpis dostanie osobę ustawioną tutaj."
+              >
+                <Select
+                  value={status.defaultAssigner ?? NO_ASSIGNER}
+                  onValueChange={handleDefaultAssigner}
+                  disabled={busy || status.assigners.length === 0}
+                >
+                  <SelectTrigger id="tg-default-assigner" className="max-w-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_ASSIGNER}>Brak</SelectItem>
+                    {status.assigners.map((name) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
               {!ready && (
                 <p className="text-xs text-muted-foreground">
                   Uzupełnij oba klucze API, aby połączyć konto.

@@ -51,6 +51,9 @@ function ensureTelegramTables(PDO $pdo): void {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+    // Kolumny dodane później (CREATE TABLE IF NOT EXISTS nie zmienia istniejącej tabeli)
+    $hasCol = $pdo->query("SHOW COLUMNS FROM telegram_integrations LIKE 'default_assigner'")->fetch();
+    if (!$hasCol) $pdo->exec("ALTER TABLE telegram_integrations ADD COLUMN default_assigner VARCHAR(255) NULL AFTER anthropic_key_enc");
     $done = true;
 }
 
@@ -158,8 +161,9 @@ function telegramExtractionSchema(): array {
                         'end' => $nullable('string'),
                         'minutes' => $nullable('integer'),
                         'text' => ['type' => 'string'],
+                        'assigned_by' => ['type' => 'array', 'items' => ['type' => 'string']],
                     ],
-                    'required' => ['client_id', 'date', 'start', 'end', 'minutes', 'text'],
+                    'required' => ['client_id', 'date', 'start', 'end', 'minutes', 'text', 'assigned_by'],
                     'additionalProperties' => false,
                 ],
             ],
@@ -174,13 +178,14 @@ function telegramExtractionSchema(): array {
  * Wyciąga wpisy z wypowiedzi użytkownika.
  * @return array{entries: array, question: ?string}
  */
-function extractEntriesWithClaude(string $apiKey, string $message, array $clients, ?string $context = null): array {
+function extractEntriesWithClaude(string $apiKey, string $message, array $clients, array $assigners = [], ?string $context = null): array {
     $days = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'];
     $today = date('Y-m-d');
     $clientLines = implode("\n", array_map(
         fn($c) => "- id {$c['id']}: {$c['name']}" . ($c['website'] ? " ({$c['website']})" : ''),
         $clients
     ));
+    $assignerLines = $assigners ? implode("\n", array_map(fn($a) => "- {$a}", $assigners)) : '(brak)';
 
     $system = <<<TXT
 Zamieniasz wiadomość użytkownika (często transkrypcję głosówki) na wpisy czasu pracy w aplikacji Work Time Tracker.
@@ -192,10 +197,14 @@ Zasady:
 - date: YYYY-MM-DD. Dziś jest {$today} ({$days[(int)date('w')]}), strefa Europe/Warsaw. Brak daty = dziś. Przeliczaj „wczoraj”, „w poniedziałek” itp.
 - start/end: HH:MM tylko gdy użytkownik podał godziny. minutes: gdy podał czas trwania. Pozostałe pola null.
 - text: krótki, rzeczowy opis wykonanej pracy ZAWSZE po polsku (przetłumacz, jeśli trzeba), w formie rzeczownikowej, wielką literą, bez nazwy klienta, daty i czasu. Popraw oczywiste błędy transkrypcji; nazw własnych nie zmieniaj.
+- assigned_by: osoby, które zleciły pracę, gdy użytkownik je wskazał (np. „zadanie od Aliny”, „zlecił Kiril”, „для Алины”). Wpisuj DOKŁADNIE nazwy z listy osób poniżej (dopasuj odmianę, zdrobnienie, inny alfabet). Osoby, z którą tylko rozmawiano lub pracowano, nie wpisuj. Nikt nie wskazany albo osoby brak na liście = pusta tablica.
 - question: krótkie pytanie po polsku, gdy brakuje czegoś koniecznego (czasu trwania/godzin, klienta) albo wiadomość nie dotyczy pracy. Wtedy entries może być puste. W przeciwnym razie null.
 
 Klienci:
 {$clientLines}
+
+Osoby zlecające:
+{$assignerLines}
 TXT;
 
     $content = $context ? "Wcześniejsza rozmowa:\n{$context}\n\nNowa wiadomość:\n{$message}" : $message;
@@ -222,6 +231,20 @@ TXT;
         }
     }
     throw new RuntimeException('Claude: nieczytelna odpowiedź');
+}
+
+/** Krótki, bezpieczny opis błędu wywołania Claude — trafia do użytkownika w Telegramie (bez kluczy). */
+function telegramClaudeErrorText(Throwable $e): string {
+    if ($e instanceof Anthropic\Core\Exceptions\AuthenticationException) return 'klucz Anthropic został odrzucony — wklej nowy w Ustawieniach → Telegram';
+    if ($e instanceof Anthropic\Core\Exceptions\PermissionDeniedException) return 'klucz Anthropic nie ma dostępu do modelu';
+    if ($e instanceof Anthropic\Core\Exceptions\RateLimitException) return 'przekroczony limit zapytań Anthropic — spróbuj za chwilę';
+    if ($e instanceof Anthropic\Core\Exceptions\OverloadedException || $e instanceof Anthropic\Core\Exceptions\InternalServerException) return 'Claude jest chwilowo przeciążony — spróbuj za chwilę';
+    if ($e instanceof Anthropic\Core\Exceptions\APIConnectionException) return 'brak połączenia z api.anthropic.com z serwera';
+    if ($e instanceof Anthropic\Core\Exceptions\APIStatusException) {
+        $msg = $e->getAPIMessage() ?: $e->getMessage();
+        return 'API Anthropic (' . ($e->status ?? '?') . '): ' . mb_substr($msg, 0, 300);
+    }
+    return mb_substr($e->getMessage(), 0, 300);
 }
 
 // ── Oczekujące potwierdzenia ─────────────────────────────────────────────────
@@ -267,7 +290,8 @@ function telegramDescribeEntry(array $e, array $clientsById): string {
     elseif ($e['start'] && $e['minutes']) $time = "od {$e['start']}, " . entryFormatDuration((int)$e['minutes']);
     elseif ($e['minutes']) $time = entryFormatDuration((int)$e['minutes']) . ' (po ostatnim wpisie)';
     else $time = '?';
-    return "• {$client} · " . telegramFormatDate($e['date']) . " · {$time}\n  {$e['text']}";
+    $who = !empty($e['assigned_by']) ? "\n  Zlecił(a): " . implode(', ', $e['assigned_by']) : '';
+    return "• {$client} · " . telegramFormatDate($e['date']) . " · {$time}\n  {$e['text']}{$who}";
 }
 
 function telegramHelpText(): string {

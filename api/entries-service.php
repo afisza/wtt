@@ -89,6 +89,17 @@ function entryResolveClient(array $clients, $query): array {
     ]];
 }
 
+/** Nazwy osób zlecających użytkownika (tabela assigners). */
+function entryUserAssigners(PDO $pdo, int $userId): array {
+    try {
+        $stmt = $pdo->prepare("SELECT name FROM assigners WHERE user_id = ? AND name <> '' ORDER BY name");
+        $stmt->execute([$userId]);
+        return array_values(array_unique(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN))));
+    } catch (Throwable $e) {
+        return []; // brak tabeli assigners = brak osób
+    }
+}
+
 function entryGenerateUniqueTaskUid(PDO $pdo): string {
     $check = $pdo->prepare('SELECT 1 FROM tasks WHERE task_uid = ? LIMIT 1');
     for ($i = 0; $i < 50; $i++) {
@@ -102,7 +113,8 @@ function entryGenerateUniqueTaskUid(PDO $pdo): string {
 /**
  * Dodaje jeden wpis.
  *
- * @param array $input {client|clientId, text, minutes|duration, date?, start?, end?, status?, allowDuplicate?}
+ * @param array $input {client|clientId, text, minutes|duration, date?, start?, end?, status?, assignedBy?, allowDuplicate?}
+ *                     assignedBy = nazwa lub tablica nazw osób zlecających (muszą istnieć w „Osobach”)
  * @return array ['status' => int, 'body' => array] — 201 utworzono, 200 duplikat, 4xx/5xx błąd
  */
 function createEntry(PDO $pdo, int $userId, array $input): array {
@@ -128,6 +140,16 @@ function createEntry(PDO $pdo, int $userId, array $input): array {
         if ($minutes === null) return $err(400, 'Nie rozumiem czasu trwania (np. 207 albo "3h 27min")');
     }
     if ($minutes !== null && $minutes > 1440) return $err(400, 'Czas trwania przekracza dobę');
+
+    $assignedBy = [];
+    if (!empty($input['assignedBy'])) {
+        $known = entryUserAssigners($pdo, $userId);
+        $m = matchAssigners($known, $input['assignedBy']);
+        if ($m['unknown']) {
+            return $err(400, 'Nieznana osoba zlecająca: ' . implode(', ', $m['unknown']), ['allowed' => $known]);
+        }
+        $assignedBy = $m['names'];
+    }
 
     $resolved = entryResolveClient(entryUserClients($pdo, $userId), $input['client'] ?? $input['clientId'] ?? null);
     if (!isset($resolved['client'])) return $resolved;
@@ -178,7 +200,7 @@ function createEntry(PDO $pdo, int $userId, array $input): array {
             'INSERT INTO tasks (work_day_id, task_uid, description, assigned_by, start_time, end_time, status, completed, attachments)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute([
-            $workDayId, $uid, $text, '', $times['start'], $times['end'], $status,
+            $workDayId, $uid, $text, $assignedBy ? json_encode($assignedBy) : '', $times['start'], $times['end'], $status,
             $status === 'wykonano' ? 1 : 0, '[]',
         ]);
         $pdo->commit();
@@ -191,7 +213,7 @@ function createEntry(PDO $pdo, int $userId, array $input): array {
     // Kopia w JSON — tak jak zapisy z aplikacji (upsert po id, nic nie usuwa)
     try {
         saveMonthDataJSON($userId, substr($date, 0, 7), [$date => ['tasks' => [[
-            'id' => $uid, 'text' => $text, 'assignedBy' => [], 'startTime' => $times['start'],
+            'id' => $uid, 'text' => $text, 'assignedBy' => $assignedBy, 'startTime' => $times['start'],
             'endTime' => $times['end'], 'status' => $status, 'attachments' => [],
         ]]]], $clientId);
     } catch (Throwable $e) {
@@ -212,6 +234,7 @@ function createEntry(PDO $pdo, int $userId, array $input): array {
             'minutes' => $times['minutes'],
             'duration' => entryFormatDuration($times['minutes']),
             'status' => $status,
+            'assignedBy' => $assignedBy,
         ],
         'clientDayTotal' => entryFormatDuration($dayTotal),
         'clientDayTotalMinutes' => $dayTotal,

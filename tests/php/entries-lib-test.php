@@ -60,5 +60,14 @@ eq('ambiguous', count(matchClient($clients, 'podolog')['candidates']), 2);
 eq('ambiguous no match', matchClient($clients, 'podolog')['match'], null);
 eq('none', matchClient($clients, 'xyz-shop.com')['match'], null);
 
+// matchAssigners
+$people = ['Alex Shram', 'Alina Kowalska', 'Łukasz Nowak', 'Kiril', 'Anna Maj', 'Anna Zięba'];
+eq('assigner full', matchAssigners($people, ['alex shram']), ['names' => ['Alex Shram'], 'unknown' => []]);
+eq('assigner first name', matchAssigners($people, 'Alina'), ['names' => ['Alina Kowalska'], 'unknown' => []]);
+eq('assigner no diacritics', matchAssigners($people, ['lukasz']), ['names' => ['Łukasz Nowak'], 'unknown' => []]);
+eq('assigner ambiguous first', matchAssigners($people, ['Anna']), ['names' => [], 'unknown' => ['Anna']]);
+eq('assigner dedupe + unknown', matchAssigners($people, ['Kiril', 'kiril', 'Zenek']), ['names' => ['Kiril'], 'unknown' => ['Zenek']]);
+eq('assigner empty', matchAssigners($people, null), ['names' => [], 'unknown' => []]);
+
 echo $fail ? "{$fail} test(s) failed\n" : "All entries-lib tests passed\n";
 exit($fail ? 1 : 0);
