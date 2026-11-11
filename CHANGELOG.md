@@ -2,23 +2,33 @@
 
 Wszystkie istotne zmiany w Afisza Time Tracker. Najnowsza wersja na górze.
 
+## [2.7.2] - 2026-11-11
+
+### Bezpieczeństwo
+
+- Biblioteka logowania (tokeny sesji JWT) zaktualizowana do wersji bez znanych podatności. Nic się nie zmienia w działaniu, nie trzeba logować się ponownie.
+
 ## [2.7.1] - 2026-11-11
 
 ### Automatyczne odświeżanie
+
 - Otwarta aplikacja sama pokazuje zmiany zrobione poza nią, np. zadanie dodane lub usunięte przez bota Telegram. Co 15 sekund i po powrocie do okna sprawdza, czy dane się zmieniły, i dociąga je bez przeładowania strony.
 
 ## [2.7.0] - 2026-11-11
 
 ### Numery zadań
+
 - Każde zadanie ma widoczny numer, np. `WTT-323525` (lista dnia, panel dnia, Kanban). Kliknięcie kopiuje numer. W raportach PDF numeru nie ma.
 - Zadania bez numeru albo z powtórzonym numerem dostają jednorazowo nowy, unikalny numer.
 - Wyszukiwarka znajduje zadanie po numerze („WTT-323525” albo „323525”).
 
 ### Bot Telegram
+
 - Usuwanie zadań głosówką lub wiadomością: „Usuń zadanie WTT-323525”. Przed usunięciem bot pokazuje zadanie i prosi o potwierdzenie.
 - Potwierdzenie zapisu i lista /dzis pokazują numery zadań.
 
 ### Prywatność bota Telegram
+
 - Po rozpoznaniu głosówki bot od razu usuwa transkrypcję z konta ElevenLabs. Tekst zostaje tylko w aplikacji, a wpis powstaje tak jak wcześniej.
 
 ## [2.6.0] - 2026-11-10
