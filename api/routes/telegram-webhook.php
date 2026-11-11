@@ -136,7 +136,39 @@ function telegramHandleUpdate(PDO $pdo, array $integration, array $update): void
         telegramSend($botToken, $chatId, telegramHelpText());
         return;
     }
+    // „Usuń zadanie WTT-323525” — rozpoznajemy bez Claude
+    $deleteIds = parseDeleteTaskCommand($text);
+    if ($deleteIds !== null) {
+        telegramProposeDelete($pdo, $userId, $botToken, $chatId, $deleteIds);
+        return;
+    }
     telegramProposeEntries($pdo, $integration, $botToken, $chatId, $text);
+}
+
+/** Pokazuje zadania do usunięcia i prosi o potwierdzenie. */
+function telegramProposeDelete(PDO $pdo, int $userId, string $botToken, int $chatId, array $ids): void {
+    backfillTaskUids($pdo);
+    $tasks = [];
+    $notFound = [];
+    foreach ($ids as $uid) {
+        $found = entryFindByUid($pdo, $userId, (string)$uid);
+        if (!$found) $notFound[] = telegramTaskRef((string)$uid);
+        foreach ($found as $t) $tasks[] = $t;
+    }
+    $missing = $notFound ? '⚠️ Nie znalazłem: ' . implode(', ', $notFound) : '';
+    if (!$tasks) {
+        telegramSend($botToken, $chatId, $missing . "\n\nNumer zadania widać w aplikacji przy każdym wpisie (np. WTT-323525) i w /dzis.");
+        return;
+    }
+    $id = telegramSavePending($pdo, $userId, 'delete', ['tasks' => $tasks]);
+    $lines = array_map('telegramDescribeTask', $tasks);
+    telegramSend(
+        $botToken,
+        $chatId,
+        (count($tasks) > 1 ? 'Usunąć te zadania?' : 'Usunąć zadanie?') . "\n\n" . implode("\n\n", $lines)
+            . ($missing ? "\n\n{$missing}" : ''),
+        [[['text' => '🗑 Usuń', 'callback_data' => "del:{$id}"], ['text' => '❌ Anuluj', 'callback_data' => "no:{$id}"]]]
+    );
 }
 
 function telegramProposeEntries(PDO $pdo, array $integration, string $botToken, int $chatId, string $text): void {
@@ -167,6 +199,16 @@ function telegramProposeEntries(PDO $pdo, array $integration, string $botToken, 
     } catch (Throwable $e) {
         error_log('[telegram] claude: ' . get_class($e) . ': ' . $e->getMessage());
         telegramSend($botToken, $chatId, '⚠️ Nie udało się przetworzyć wiadomości (Claude): ' . telegramClaudeErrorText($e));
+        return;
+    }
+
+    // Claude rozpoznał prośbę o usunięcie zadań po numerze
+    $deleteIds = array_values(array_unique(array_filter(
+        array_map(fn($v) => preg_replace('/\D/', '', (string)$v), $result['delete_task_ids'] ?? []),
+        fn($v) => strlen($v) >= 6 && strlen($v) <= 12
+    )));
+    if ($deleteIds && empty($result['entries'])) {
+        telegramProposeDelete($pdo, $userId, $botToken, $chatId, $deleteIds);
         return;
     }
 
@@ -218,12 +260,15 @@ function telegramHandleCallback(PDO $pdo, array $integration, string $botToken, 
         'chat_id' => $chatId, 'message_id' => $messageId, 'text' => mb_substr($text, 0, 4000),
     ]);
 
-    if (!preg_match('/^(ok|no):([a-f0-9]{16})$/', (string)($cb['data'] ?? ''), $m)) {
+    if (!preg_match('/^(ok|no|del):([a-f0-9]{16})$/', (string)($cb['data'] ?? ''), $m)) {
         $answer();
         return;
     }
     $userId = (int)$integration['user_id'];
-    $pending = telegramLoadPending($pdo, $userId, $m[2], 'confirm', TELEGRAM_PENDING_TTL);
+    $pending = $m[1] === 'del' ? null : telegramLoadPending($pdo, $userId, $m[2], 'confirm', TELEGRAM_PENDING_TTL);
+    if ($m[1] !== 'ok' && !$pending) {
+        $pending = telegramLoadPending($pdo, $userId, $m[2], 'delete', TELEGRAM_PENDING_TTL);
+    }
     if (!$pending) {
         $answer('Ta propozycja jest nieaktualna');
         return;
@@ -233,6 +278,18 @@ function telegramHandleCallback(PDO $pdo, array $integration, string $botToken, 
     if ($m[1] === 'no') {
         $answer('Anulowano');
         $edit("❌ Anulowano.\n\n" . ($cb['message']['text'] ?? ''));
+        return;
+    }
+
+    if ($m[1] === 'del') {
+        $answer('Usuwam…');
+        $lines = [];
+        foreach ($pending['tasks'] ?? [] as $t) {
+            $lines[] = deleteEntryRow($pdo, $userId, $t)
+                ? '🗑 Usunięto ' . telegramDescribeTask($t)
+                : '⚠️ Nie usunięto ' . telegramTaskRef($t['id']) . ' — zadania już nie ma';
+        }
+        $edit(implode("\n\n", $lines) . "\n\nOtwarta aplikacja pokaże zmianę po odświeżeniu strony.");
         return;
     }
 
@@ -251,7 +308,7 @@ function telegramHandleCallback(PDO $pdo, array $integration, string $botToken, 
         $b = $res['body'];
         if ($res['status'] === 201) {
             $en = $b['entry'];
-            $lines[] = "✅ {$en['client']} · " . telegramFormatDate($en['date']) . " · {$en['start']}–{$en['end']} ({$en['duration']})\n  {$en['text']}" . ($en['assignedBy'] ? "\n  Zlecił(a): " . implode(', ', $en['assignedBy']) : '') . "\n  Suma dnia u klienta: {$b['clientDayTotal']}";
+            $lines[] = '✅ ' . telegramTaskRef($en['id']) . " · {$en['client']} · " . telegramFormatDate($en['date']) . " · {$en['start']}–{$en['end']} ({$en['duration']})\n  {$en['text']}" . ($en['assignedBy'] ? "\n  Zlecił(a): " . implode(', ', $en['assignedBy']) : '') . "\n  Suma dnia u klienta: {$b['clientDayTotal']}";
         } elseif (!empty($b['duplicate'])) {
             $lines[] = "ℹ️ Już zapisane wcześniej: {$e['text']}";
         } else {
@@ -267,6 +324,6 @@ function telegramSendToday(PDO $pdo, int $userId, string $botToken, int $chatId)
         telegramSend($botToken, $chatId, 'Dziś nie ma jeszcze żadnych wpisów.');
         return;
     }
-    $lines = array_map(fn($t) => "• {$t['start']}–{$t['end']} {$t['client']}: {$t['text']}", $tasks);
+    $lines = array_map(fn($t) => "• {$t['start']}–{$t['end']} {$t['client']}: {$t['text']} (" . telegramTaskRef($t['id']) . ')', $tasks);
     telegramSend($botToken, $chatId, "Dziś:\n" . implode("\n", $lines) . "\n\nRazem: " . entryFormatDuration(entryTotalMinutes($tasks)));
 }

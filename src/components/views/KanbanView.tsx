@@ -5,6 +5,7 @@ import { useTaskDrop, setTaskDragData } from '@/hooks/useTaskDrop';
 import { DAY_NAMES_SHORT, toMinutes } from '@/lib/tasks';
 import { statusDot } from '@/components/tasks/StatusSelect';
 import AssignerAvatar from '@/components/tasks/AssignerAvatar';
+import TaskIdBadge from '@/components/tasks/TaskIdBadge';
 import { cn } from '@/lib/utils';
 import type { Task, TaskStatus } from '@/components/tasks/types';
 import type { Assigner, DayData, TasksUpdater } from '@/hooks/useCalendarData';
@@ -149,6 +150,7 @@ function KanbanColumn({
               >
                 {task.text}
               </p>
+              <TaskIdBadge id={task.id} className="-ml-1 mt-1" />
               {task.assignedBy?.length > 0 && (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                   {task.assignedBy.map((name) => (

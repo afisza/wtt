@@ -11,6 +11,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/secret-box.php';
 require_once __DIR__ . '/entries-service.php';
+require_once __DIR__ . '/task-uids.php';
 require_once __DIR__ . '/vendor/autoload.php';
 
 const TELEGRAM_EXTRACT_MODEL = 'claude-haiku-5-5';
@@ -140,7 +141,31 @@ function transcribeWithScribe(string $apiKey, string $audio, string $filename): 
         $detail = $data['detail']['message'] ?? $data['detail'] ?? ('HTTP ' . $code);
         throw new RuntimeException('ElevenLabs: ' . (is_string($detail) ? $detail : json_encode($detail)));
     }
+    // Prywatność: tekst mamy już u siebie, więc kasujemy kopię transkrypcji po stronie ElevenLabs
+    // (zero retention jest tylko w planie Enterprise). Błąd usuwania nie blokuje wpisu.
+    $transcriptionId = $data['transcription_id'] ?? null;
+    if (is_string($transcriptionId) && $transcriptionId !== '') {
+        deleteScribeTranscript($apiKey, $transcriptionId);
+    }
     return trim((string)($data['text'] ?? ''));
+}
+
+/** Usuwa transkrypcję z konta ElevenLabs. Zwraca true przy sukcesie; błąd tylko loguje. */
+function deleteScribeTranscript(string $apiKey, string $transcriptionId): bool {
+    $ch = curl_init('https://api.elevenlabs.io/v1/speech-to-text/transcripts/' . rawurlencode($transcriptionId));
+    curl_setopt_array($ch, [
+        CURLOPT_CUSTOMREQUEST => 'DELETE',
+        CURLOPT_HTTPHEADER => ['xi-api-key: ' . $apiKey],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $raw = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code >= 200 && $code < 300) return true;
+    error_log('WTT telegram: nie udało się usunąć transkrypcji ElevenLabs (HTTP ' . $code . '): '
+        . substr(is_string($raw) ? $raw : '', 0, 300));
+    return false;
 }
 
 // ── Claude: tekst → wpisy ────────────────────────────────────────────────────
@@ -167,9 +192,10 @@ function telegramExtractionSchema(): array {
                     'additionalProperties' => false,
                 ],
             ],
+            'delete_task_ids' => ['type' => 'array', 'items' => ['type' => 'string']],
             'question' => $nullable('string'),
         ],
-        'required' => ['entries', 'question'],
+        'required' => ['entries', 'delete_task_ids', 'question'],
         'additionalProperties' => false,
     ];
 }
@@ -198,6 +224,7 @@ Zasady:
 - start/end: HH:MM tylko gdy użytkownik podał godziny. minutes: gdy podał czas trwania. Pozostałe pola null.
 - text: krótki, rzeczowy opis wykonanej pracy ZAWSZE po polsku (przetłumacz, jeśli trzeba), w formie rzeczownikowej, wielką literą, bez nazwy klienta, daty i czasu. Popraw oczywiste błędy transkrypcji; nazw własnych nie zmieniaj.
 - assigned_by: osoby, które zleciły pracę, gdy użytkownik je wskazał (np. „zadanie od Aliny”, „zlecił Kiril”, „для Алины”). Wpisuj DOKŁADNIE nazwy z listy osób poniżej (dopasuj odmianę, zdrobnienie, inny alfabet). Osoby, z którą tylko rozmawiano lub pracowano, nie wpisuj. Nikt nie wskazany albo osoby brak na liście = pusta tablica.
+- delete_task_ids: gdy użytkownik prosi o usunięcie zadań po numerze (np. „usuń zadanie WTT-323525”, „skasuj wpis 323 525”), wpisz same cyfry numerów (6–12 cyfr) i zostaw entries puste. Bez numeru nie zgaduj — zadaj pytanie. W pozostałych przypadkach pusta tablica.
 - question: krótkie pytanie po polsku, gdy brakuje czegoś koniecznego (czasu trwania/godzin, klienta) albo wiadomość nie dotyczy pracy. Wtedy entries może być puste. W przeciwnym razie null.
 
 Klienci:
@@ -294,10 +321,22 @@ function telegramDescribeEntry(array $e, array $clientsById): string {
     return "• {$client} · " . telegramFormatDate($e['date']) . " · {$time}\n  {$e['text']}{$who}";
 }
 
+function telegramTaskRef(string $uid): string {
+    return 'WTT-' . $uid;
+}
+
+/** Opis istniejącego zadania (z entryFindByUid) do potwierdzeń usuwania. */
+function telegramDescribeTask(array $t): string {
+    $who = !empty($t['assignedBy']) ? "\n  Zlecił(a): " . implode(', ', $t['assignedBy']) : '';
+    return telegramTaskRef($t['id']) . " · {$t['client']} · " . telegramFormatDate($t['date'])
+        . " · {$t['start']}–{$t['end']}\n  {$t['text']}{$who}";
+}
+
 function telegramHelpText(): string {
     return "Wyślij głosówkę albo wiadomość, np.:\n"
         . "„Dziś od 16 do 19 przy Best Market – omówienie API z Kirilem”\n"
         . "„Wczoraj 2h 15 min, verrify.global, poprawki landing page”\n\n"
         . "Rozumiem polski, ukraiński, rosyjski i angielski. Przed zapisem zawsze pokażę podsumowanie do potwierdzenia.\n\n"
+        . "Usuwanie: „Usuń zadanie WTT-323525” (numer widać w aplikacji przy każdym wpisie i w /dzis).\n\n"
         . "/dzis — wpisy z dzisiaj\n/pomoc — ta wiadomość";
 }

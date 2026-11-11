@@ -3,6 +3,7 @@ require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../storage.php';
 require_once __DIR__ . '/../json-helpers.php';
+require_once __DIR__ . '/../task-uids.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -138,6 +139,8 @@ function getMonthDataMySQL(int $userId, string $monthKey, int $clientId): array 
     if (!$pdo) return [];
 
     ensureSchemaColumns($pdo);
+    // Jednorazowo: numer dla każdego zadania (WTT-xxxxxx) i rozdzielenie powielonych numerów
+    backfillTaskUids($pdo);
 
     // Collect existing task_uids to avoid collisions when generating new ones
     $existingTaskUids = [];

@@ -240,3 +240,50 @@ function createEntry(PDO $pdo, int $userId, array $input): array {
         'clientDayTotalMinutes' => $dayTotal,
     ]];
 }
+
+/** Zadania użytkownika o danym numerze (zwykle jedno; więcej = dawny duplikat). */
+function entryFindByUid(PDO $pdo, int $userId, string $uid): array {
+    $stmt = $pdo->prepare(
+        'SELECT t.id AS row_id, t.task_uid, t.description, t.start_time, t.end_time, t.assigned_by,
+                wd.date, wd.client_id, c.name AS client_name
+         FROM tasks t
+         JOIN work_days wd ON wd.id = t.work_day_id
+         LEFT JOIN clients c ON c.id = wd.client_id
+         WHERE wd.user_id = ? AND t.task_uid = ?
+         ORDER BY wd.date, t.start_time'
+    );
+    $stmt->execute([$userId, $uid]);
+    return array_map(fn($t) => [
+        'rowId' => (int)$t['row_id'],
+        'id' => (string)$t['task_uid'],
+        'date' => substr((string)$t['date'], 0, 10),
+        'clientId' => (int)$t['client_id'],
+        'client' => $t['client_name'],
+        'text' => $t['description'],
+        'start' => substr((string)$t['start_time'], 0, 5),
+        'end' => substr((string)$t['end_time'], 0, 5),
+        'assignedBy' => json_decode((string)$t['assigned_by'], true) ?: [],
+    ], $stmt->fetchAll());
+}
+
+/**
+ * Usuwa jedno zadanie (wiersz z entryFindByUid) z MySQL i z kopii JSON.
+ * Usuwa tylko wiersz należący do użytkownika — sprawdzane ponownie w zapytaniu.
+ */
+function deleteEntryRow(PDO $pdo, int $userId, array $task): bool {
+    $stmt = $pdo->prepare(
+        'DELETE t FROM tasks t JOIN work_days wd ON wd.id = t.work_day_id
+         WHERE t.id = ? AND t.task_uid = ? AND wd.user_id = ?'
+    );
+    $stmt->execute([$task['rowId'], $task['id'], $userId]);
+    if ($stmt->rowCount() === 0) return false;
+
+    try {
+        saveMonthDataJSON($userId, substr($task['date'], 0, 7), [
+            $task['date'] => ['tasks' => [], 'deletedIds' => [$task['id']]],
+        ], $task['clientId']);
+    } catch (Throwable $e) {
+        error_log('[deleteEntryRow] JSON backup failed: ' . $e->getMessage());
+    }
+    return true;
+}

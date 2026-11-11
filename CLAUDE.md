@@ -74,10 +74,16 @@ MAMP must be running for the PHP API (Apache on :80, MySQL):
   `X-Telegram-Bot-Api-Secret-Token`, SHA-256 in `telegram_integrations.webhook_secret_hash`; answers 200 then works after
   `fastcgi_finish_request`), `api/routes/settings-telegram.php` (session; save keys → `getMe` + `setWebhook`; one-time
   `t.me/<bot>?start=<code>` link pins the Telegram user). UI: `src/components/settings/TelegramTab.tsx`.
-- Flow: voice → `getFile` → ElevenLabs Scribe v2 (auto language) → Claude Haiku 5.5 via `anthropic-ai/sdk` (+ Guzzle as PSR-18)
+- Flow: voice → `getFile` → ElevenLabs Scribe v2 (auto language; transcript then deleted on ElevenLabs via
+  `DELETE /v1/speech-to-text/transcripts/{transcription_id}`, failure only logged — account is Pro, no zero retention) → Claude Haiku 5.5 via `anthropic-ai/sdk` (+ Guzzle as PSR-18)
   with `json_schema` output → `telegram_pending` → inline ✅/❌ → `createEntry()` in `api/entries-service.php` (shared with `/v1`).
 - Assigners: Claude returns `assigned_by` names from the user's `assigners`; `matchAssigners()` (entries-lib) validates them;
   none → `telegram_integrations.default_assigner` (set in TelegramTab). `tasks.assigned_by` = JSON array of names.
+- Task numbers: `tasks.task_uid` shown as `WTT-<uid>` (`src/components/tasks/TaskIdBadge.tsx`, `src/lib/taskId.ts`).
+  `api/task-uids.php`: `backfillTaskUids()` (one-time, flag file `data/task-uid-backfill-v1.done`; called from work-time GET
+  and the bot) fills missing uids and renumbers duplicates; `parseDeleteTaskCommand()` („usuń WTT-323525”, tested in
+  `tests/php/task-uids-test.php`). Bot delete = pending kind `delete` → callback `del:` → `deleteEntryRow()` (MySQL + JSON copy).
+  Frontend-generated uids are only unique within the loaded month, so the bot lists every match for a number.
 - Per-user keys (bot, ElevenLabs, Anthropic) encrypted with libsodium secretbox, key derived from `data/.jwt-secret`
   (`api/secret-box.php`) — rotating that secret means re-entering the keys.
 

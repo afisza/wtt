@@ -96,6 +96,8 @@ function searchMySQL(int $userId, int $clientId, string $queryText): array {
 
     $pdo->exec("SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'");
     $searchPattern = '%' . $queryText . '%';
+    // Numer zadania: „WTT-323525”, „wtt 323525”, „#323525”, „323525”
+    $uidQuery = preg_match('/^\s*(?:wtt[\s-]*|#)?(\d{6,12})\s*$/i', $queryText, $um) ? $um[1] : null;
     $results = [];
 
     $likeCollate = " COLLATE utf8mb4_unicode_ci LIKE ?";
@@ -121,11 +123,12 @@ function searchMySQL(int $userId, int $clientId, string $queryText): array {
                 AND (
                     t.description" . $likeCollate . "
                     OR t.assigned_by" . $likeCollate . "
+                    OR t.task_uid = ?
                 )
             ORDER BY wd.date DESC, COALESCE(t.start_time, '08:00:00') ASC
             LIMIT 100"
         );
-        $stmt->execute([$userId, $clientId, $searchPattern, $searchPattern]);
+        $stmt->execute([$userId, $clientId, $searchPattern, $searchPattern, $uidQuery ?? '-']);
         $tasks = $stmt->fetchAll();
     } catch (PDOException $e) {
         if (strpos($e->getMessage(), 'Unknown column') !== false ||
@@ -174,7 +177,8 @@ function searchMySQL(int $userId, int $clientId, string $queryText): array {
         $matchesText = mb_strpos($taskText, $queryLower) !== false;
         $matchesAssignedBy = mb_strpos($assignedByStr, $queryLower) !== false;
 
-        if (!$matchesText && !$matchesAssignedBy) {
+        $matchesUid = $uidQuery !== null && (string)($task['task_uid'] ?? '') === $uidQuery;
+        if (!$matchesText && !$matchesAssignedBy && !$matchesUid) {
             $assignedByRaw = mb_strtolower((string)($task['assigned_by'] ?? ''));
             if (mb_strpos($assignedByRaw, $queryLower) === false) {
                 continue;

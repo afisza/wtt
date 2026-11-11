@@ -17,6 +17,7 @@ import AttachmentGallery, { uploadTaskAttachment } from './tasks/AttachmentGalle
 import TaskForm, { type TaskFormValues } from './tasks/TaskForm';
 import StatusSelect from './tasks/StatusSelect';
 import AssignerAvatar from './tasks/AssignerAvatar';
+import TaskIdBadge from './tasks/TaskIdBadge';
 import { renderTextWithLinks } from './tasks/types';
 import type { Task } from './tasks/types';
 import type { Assigner, TasksUpdater } from '@/hooks/useCalendarData';
@@ -401,6 +402,7 @@ function TaskItem({
           {hasEditDraft && (
             <span className="font-medium text-highlight-ink">• niezapisany szkic</span>
           )}
+          <TaskIdBadge id={task.id} className="-ml-1" />
         </div>
         <AttachmentGallery attachments={task.attachments || []} onOpenLightbox={onOpenLightbox} />
       </div>

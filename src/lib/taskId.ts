@@ -28,3 +28,17 @@ export function generateTaskId(existingIds: Set<string>): string {
   } while (existingIds.has(id))
   return id
 }
+
+/** Prefiks numeru zadania widocznego w aplikacji i rozumianego przez bota Telegram („usuń WTT-323525”). */
+export const TASK_REF_PREFIX = 'WTT-';
+
+/** Czytelny numer zadania, np. `WTT-323525`. */
+export function formatTaskRef(id: string): string {
+  return `${TASK_REF_PREFIX}${id}`;
+}
+
+/** Wyciąga numer zadania z wpisanego tekstu: `wtt-323525`, `WTT 323525`, `#323525`, `323525`. */
+export function parseTaskRef(input: string): string | null {
+  const m = input.trim().match(/^(?:wtt[\s-]*|#)?(\d{6,12})$/i)
+  return m ? m[1] : null
+}
