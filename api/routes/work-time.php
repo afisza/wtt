@@ -4,6 +4,7 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../storage.php';
 require_once __DIR__ . '/../json-helpers.php';
 require_once __DIR__ . '/../task-uids.php';
+require_once __DIR__ . '/../month-rev.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -47,7 +48,14 @@ function handleGet(): void {
             $monthData = getMonthDataJSON($userId, $monthKey, $clientId);
         }
 
-        echo json_encode([$monthKey => (object)$monthData]);
+        // `rev` = odcisk danych; aplikacja porównuje go z GET /api/work-time/rev, by wykryć zmiany z zewnątrz
+        $rev = null;
+        try {
+            $rev = workTimeMonthRev((int)$userId, $monthKey, $clientId);
+        } catch (Throwable $e) {
+            error_log('[GET /api/work-time] rev: ' . $e->getMessage());
+        }
+        echo json_encode([$monthKey => (object)$monthData, 'rev' => $rev]);
     } catch (Exception $e) {
         // Błąd odczytu MUSI być błędem (500), a nie pustym miesiącem — pusta odpowiedź
         // wyglądała dla frontendu jak „brak zadań” i kolejny zapis mógł je nadpisać.

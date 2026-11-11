@@ -40,6 +40,8 @@ export interface Assigner {
 const RETRY_DELAYS_MS = [2000, 5000, 10000, 30000, 60000];
 const FLUSH_DEBOUNCE_MS = 350;
 const STALE_AFTER_MS = 2 * 60 * 1000;
+// Zmiany spoza tej karty (bot Telegram, API, inne urządzenie) — co ile sprawdzamy odcisk miesiąca
+const REMOTE_POLL_MS = 15 * 1000;
 
 const makeDay = (date: string, tasks: Task[]): DayData => ({
   date,
@@ -84,6 +86,7 @@ export function useCalendarData(clientId: number | null) {
   const loadSeqRef = useRef(0);
   const loadedKeyRef = useRef<string | null>(null);
   const lastLoadedAtRef = useRef(0);
+  const remoteRevRef = useRef<string | null>(null);
 
   const commitDays = useCallback((next: Record<string, DayData>) => {
     daysDataRef.current = next;
@@ -215,11 +218,12 @@ export function useCalendarData(clientId: number | null) {
       if (!opts.silent || loadedKeyRef.current !== key) setLoading(true);
 
       try {
-        const data = await apiJson<Record<string, Record<string, any>>>(
+        const data = await apiJson<Record<string, any>>(
           `/api/work-time?month=${mk}&clientId=${cid}`,
         );
         if (seq !== loadSeqRef.current) return; // nowsze żądanie wygrało
-        const monthData = (data && data[mk]) || {};
+        remoteRevRef.current = typeof data?.rev === 'string' ? data.rev : null;
+        const monthData: Record<string, any> = (data && data[mk]) || {};
         const [y, m] = mk.split('-').map(Number);
         const days = eachDayOfInterval({
           start: new Date(y, m - 1, 1),
@@ -269,6 +273,45 @@ export function useCalendarData(clientId: number | null) {
   useEffect(() => {
     if (clientId === null) return;
     void loadData();
+  }, [clientId, monthKey, loadData]);
+
+  // Zmiany z zewnątrz (np. bot Telegram usunął zadanie): co 15 s i po powrocie do okna pobieramy
+  // mały odcisk miesiąca; gdy różni się od wczytanego, dociągamy dane po cichu (bez przeładowania).
+  // Pomijamy, gdy ta karta ma niewysłane zmiany — wtedy najpierw idzie zapis.
+  useEffect(() => {
+    if (clientId === null) return;
+    let checking = false;
+    const check = async () => {
+      if (checking || document.visibilityState !== 'visible' || !navigator.onLine) return;
+      if (inFlightRef.current || Object.keys(outboxRef.current).length > 0) return;
+      const cid = clientIdRef.current;
+      const mk = monthKeyRef.current;
+      if (cid == null || loadedKeyRef.current !== `${cid}:${mk}`) return;
+      checking = true;
+      try {
+        const { rev } = await apiJson<{ rev: string }>(
+          `/api/work-time/rev?month=${mk}&clientId=${cid}`,
+          { cache: 'no-store' },
+        );
+        if (cid !== clientIdRef.current || mk !== monthKeyRef.current) return;
+        if (rev === remoteRevRef.current) return;
+        if (inFlightRef.current || Object.keys(outboxRef.current).length > 0) return;
+        await loadData({ silent: true });
+      } catch {
+        /* sprawdzimy przy następnej okazji */
+      } finally {
+        checking = false;
+      }
+    };
+    const timer = window.setInterval(() => void check(), REMOTE_POLL_MS);
+    const onFocus = () => void check();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
   }, [clientId, monthKey, loadData]);
 
   // Zdarzenia przeglądarki: zamknięcie karty, powrót do karty, sieć, sesja

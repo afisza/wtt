@@ -289,7 +289,7 @@ function telegramHandleCallback(PDO $pdo, array $integration, string $botToken, 
                 ? '🗑 Usunięto ' . telegramDescribeTask($t)
                 : '⚠️ Nie usunięto ' . telegramTaskRef($t['id']) . ' — zadania już nie ma';
         }
-        $edit(implode("\n\n", $lines) . "\n\nOtwarta aplikacja pokaże zmianę po odświeżeniu strony.");
+        $edit(implode("\n\n", $lines) . "\n\nOtwarta aplikacja zaktualizuje się sama w ciągu kilkunastu sekund.");
         return;
     }
 

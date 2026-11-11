@@ -115,6 +115,9 @@ On load the outbox is overlaid on server data, so reloads / expired sessions / o
 - **`src/lib/api.ts`** — use `apiFetch`/`apiJson` for every API call (never raw `fetch`): on 401 it does a single-flight
   `/api/auth/refresh` and retries; if refresh fails it emits `wtt:session-expired` → `SessionGuard` shows an inline
   re-login dialog over the app (state is kept). The backend rotates the refresh token on each refresh (sliding 7 d).
+- Remote changes (bot, `/v1`, other devices): `GET /api/work-time` returns `rev` (hash of the month's tasks,
+  `api/month-rev.php`); the hook polls `GET /api/work-time/rev` every 15 s + on focus and silently reloads when it differs
+  (skipped while the outbox has unsent changes).
 - **`src/lib/drafts.ts`** — open forms (add/edit/inline edit) persist to `wtt:draft:v1:{clientId}:{date}:{id}`
   (45-day TTL) via `useDraft`; drafts are cleared only on save or explicit "Odrzuć".
 - **`src/lib/saveStatus.ts`** — global save state shown by `SaveIndicator` in the header.

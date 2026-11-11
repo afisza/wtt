@@ -66,6 +66,7 @@ $routes = [
     '/assigners' => 'assigners.php',
     '/assigners/upload' => 'assigners-upload.php',
     '/work-time' => 'work-time.php',
+    '/work-time/rev' => 'work-time-rev.php',
     '/search-tasks' => 'search-tasks.php',
     '/task-attachments' => 'task-attachments.php',
     '/task-attachments/upload' => 'task-attachments-upload.php',

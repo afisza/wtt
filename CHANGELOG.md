@@ -2,6 +2,11 @@
 
 Wszystkie istotne zmiany w Afisza Time Tracker. Najnowsza wersja na górze.
 
+## [2.7.1] - 2026-11-11
+
+### Automatyczne odświeżanie
+- Otwarta aplikacja sama pokazuje zmiany zrobione poza nią, np. zadanie dodane lub usunięte przez bota Telegram. Co 15 sekund i po powrocie do okna sprawdza, czy dane się zmieniły, i dociąga je bez przeładowania strony.
+
 ## [2.7.0] - 2026-11-11
 
 ### Numery zadań
